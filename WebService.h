@@ -2067,7 +2067,7 @@ private:
     void _handleUpdateCheck() {
         if (!_guard()) return;
         if (!_checkCSRF()) return;
-        _ota.requestCheck();
+        _ota.requestCheck(_relay && _relay->up());
         _go("/update");
     }
 
@@ -2082,7 +2082,6 @@ private:
         _go("/update");
     }
 
-    // The module photo: AVIF on its white background (Assets.h)
     // ── IoT ──────────────────────────────────────────────────────────────────
 
     // <option value='value'> (escaped), selected or not; the caller writes the text

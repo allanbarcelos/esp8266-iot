@@ -473,6 +473,85 @@ void test_manual_check_already_up_to_date() {
     TEST_ASSERT_EQUAL_STRING("Firmware is up to date", f.ota.detail());
 }
 
+// With the relay up, the panel's check goes to its Worker: no TLS session
+// here, and no network turn asked for while it waits (that would close the relay)
+void test_manual_check_via_relay() {
+    Fixture f;
+    f.ota.requestCheck(true, 1000);
+    TEST_ASSERT_TRUE(f.ota.relayCheckWanted());
+    TEST_ASSERT_FALSE(f.ota.wantsNet(1000));
+    f.ota.offerLatest("v999", 1000);   // the hourly one, before the ask went up: not the answer
+    TEST_ASSERT_EQUAL(OTAService::Report::Checking, f.ota.report());
+    f.ota.tick(1000);
+    TEST_ASSERT_EQUAL(OTAService::Report::Checking, f.ota.report());
+    TEST_ASSERT_EQUAL(0, (int)MockHTTP::requests.size());
+    f.ota.relayAsked();
+    TEST_ASSERT_FALSE(f.ota.relayCheckWanted());
+    f.ota.offerLatest("v999", 3000);
+    TEST_ASSERT_EQUAL(OTAService::Report::Available, f.ota.report());
+    TEST_ASSERT_EQUAL_STRING("v999", f.ota.availableVersion());
+    TEST_ASSERT_FALSE(f.ota.busy());
+    TEST_ASSERT_FALSE(f.ota.inProgress());   // a manual check does not install
+    TEST_ASSERT_EQUAL(0, (int)MockHTTP::requests.size());
+
+    // Already the latest
+    f.ota.requestCheck(true, 5000);
+    f.ota.relayAsked();
+    f.ota.offerLatest("v5", 6000, "v5");
+    TEST_ASSERT_EQUAL(OTAService::Report::UpToDate, f.ota.report());
+    TEST_ASSERT_EQUAL_STRING("", f.ota.availableVersion());
+}
+
+// "-" (GitHub did not say), no answer in RELAY_WAIT, or the relay went down:
+// the device checks on its own
+void test_manual_check_relay_falls_back() {
+    Fixture f;
+    f.ota.requestCheck(true, 0);
+    f.ota.relayAsked();
+    f.ota.offerLatest("-", 100);
+    TEST_ASSERT_TRUE(f.ota.wantsNet(100));
+    MockHTTP::push(200, R"({"tag_name":"v999"})");
+    f.ota.tick(100);
+    TEST_ASSERT_EQUAL_STRING("v999", f.ota.availableVersion());
+
+    Fixture g;
+    g.ota.requestCheck(true, 0);
+    g.ota.relayAsked();
+    g.ota.tick(OTAService::RELAY_WAIT - 1);
+    TEST_ASSERT_EQUAL(OTAService::Report::Checking, g.ota.report());
+    MockHTTP::push(200, R"({"tag_name":"v998"})");
+    g.ota.tick(OTAService::RELAY_WAIT);
+    TEST_ASSERT_TRUE(logHas(logger, "no answer from the relay"));
+    TEST_ASSERT_EQUAL_STRING("v998", g.ota.availableVersion());
+
+    Fixture h;
+    h.ota.requestCheck(true, 0);
+    h.ota.relayUnavailable();
+    TEST_ASSERT_FALSE(h.ota.relayCheckWanted());
+    MockHTTP::push(200, R"({"tag_name":"v997"})");
+    h.ota.tick(0);
+    TEST_ASSERT_EQUAL_STRING("v997", h.ota.availableVersion());
+}
+
+// What a check in recovery found shows on the next boot's panel, once
+void test_result_from_recovery_is_shown() {
+    MockFS::put("/ota.result", "2Firmware is up to date");
+    Fixture f;
+    f.ota.begin();
+    TEST_ASSERT_EQUAL(OTAService::Report::UpToDate, f.ota.report());
+    TEST_ASSERT_EQUAL_STRING("Firmware is up to date", f.ota.detail());
+    TEST_ASSERT_FALSE(LittleFS.exists("/ota.result"));
+
+    // Anything else is dropped
+    for (const char* bad : {"9x", "2"}) {
+        MockFS::put("/ota.result", bad);
+        Fixture g;
+        g.ota.begin();
+        TEST_ASSERT_EQUAL(OTAService::Report::None, g.ota.report());
+        TEST_ASSERT_FALSE(LittleFS.exists("/ota.result"));
+    }
+}
+
 void test_manual_install() {
     Fixture f;
     MockHTTP::push(200, R"({"tag_name":"v999"})");
@@ -836,8 +915,24 @@ void test_rejection_in_recovery_restores_panel() {
     TEST_ASSERT_FALSE(f.ota.slim());
     TEST_ASSERT_FALSE(LittleFS.exists("/ota.pending"));
     TEST_ASSERT_TRUE(f.wifi.restartPending());
-    TEST_ASSERT_TRUE(logHas(logger, "recovery over, restoring the panel"));
+    TEST_ASSERT_TRUE(logHas(logger, "recovery done, restoring the panel"));
     TEST_ASSERT_EQUAL_STRING("v129", MockFS::files["/ota.rejected"].c_str());
+    // What it found waits for the panel of the next boot
+    TEST_ASSERT_EQUAL('4', MockFS::files["/ota.result"][0]);
+    TEST_ASSERT_TRUE(contains(MockFS::files["/ota.result"], "Image rejected"));
+}
+
+// The result cannot be written: the panel comes back all the same
+void test_recovery_restores_without_saving_the_result() {
+    MockFS::put("/ota.rejected", "v999");
+    MockFS::put("/ota.pending", "check 1");
+    Fixture f;
+    f.ota.begin();
+    MockFS::failWriteOpen = true;
+    MockHTTP::push(200, R"({"tag_name":"v999"})");
+    f.ota.tick(0);
+    TEST_ASSERT_TRUE(f.wifi.restartPending());
+    TEST_ASSERT_FALSE(LittleFS.exists("/ota.result"));
 }
 
 // Without heap for the panel the check goes into recovery: the mark must
@@ -1403,6 +1498,10 @@ int main() {
     RUN_TEST(test_automatic_off_does_not_check);
     RUN_TEST(test_manual_check_does_not_install);
     RUN_TEST(test_manual_check_already_up_to_date);
+    RUN_TEST(test_manual_check_via_relay);
+    RUN_TEST(test_manual_check_relay_falls_back);
+    RUN_TEST(test_result_from_recovery_is_shown);
+    RUN_TEST(test_recovery_restores_without_saving_the_result);
     RUN_TEST(test_manual_install);
     RUN_TEST(test_install_without_version_is_ignored);
     RUN_TEST(test_requests_ignored_during_download);

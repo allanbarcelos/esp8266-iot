@@ -156,7 +156,7 @@ void test_tick_runs_the_relay() {
     MockFS::put("/config.json", R"({"v":2,"ssid":"Home","pass":"12345678",
         "webpss":"strong-pass","ota_auto":false,"ntfy_cmd":"cmd-x","ntfy_topic":"data-x",
         "actuator":"relay","actuator_pin":0,"notify":true,
-        "relay_host":"esp-pump.example.com","relay_ver":6,
+        "relay_host":"esp-pump.example.com","relay_ver":7,
         "relay_key":"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"})");
     App app;
     app.begin();
@@ -218,6 +218,30 @@ void test_tick_runs_the_relay() {
     }
     TEST_ASSERT_EQUAL_STRING("connected", app.relay.status());
     TEST_ASSERT_EQUAL((int)sent, (int)MockHTTP::requests.size());
+
+    // The panel's update check: 'V' up, the answer down, the relay stays
+    unsigned long t = 2200 + NtfyNotifier::POST_GAP + 6 * 60000UL;
+    setMillis(t);
+    app.ota.requestCheck(true, t);
+    app.tick();
+    bool asked = false;
+    for (ClientFrame f = takeClientFrame(MockTLS::wire, at); f.ok; f = takeClientFrame(MockTLS::wire, at))
+        asked = asked || f.payload == "V";
+    TEST_ASSERT_TRUE(asked);
+    MockTLS::live->inject(serverFrame(WsClient::BINARY, "Vv999"));
+    setMillis(t + 100);
+    app.tick();
+    app.tick();
+    TEST_ASSERT_EQUAL_STRING("v999", app.ota.availableVersion());
+    TEST_ASSERT_EQUAL_STRING("connected", app.relay.status());
+    TEST_ASSERT_EQUAL((int)sent, (int)MockHTTP::requests.size());
+
+    // The relay down when the check comes: the device checks on its own
+    app.relay.reconnect();
+    app.ota.requestCheck(true, t + 200);
+    setMillis(t + 200);
+    app.tick();
+    TEST_ASSERT_FALSE(app.ota.relayCheckWanted());
 }
 
 // A Cloudflare job takes the TLS session for its tick, like DNS
@@ -275,7 +299,7 @@ void test_tick_redeploys_an_outdated_relay() {
 void test_tick_falls_back_to_the_ntfy_stream() {
     MockFS::put("/config.json", R"({"v":2,"ssid":"Home","pass":"12345678","webpss":"strong-pass",
         "ota_auto":false,"ntfy_cmd":"cmd-x","actuator":"relay","actuator_pin":0,
-        "relay_host":"esp-pump.example.com","relay_ver":6,"relay_key":"00"})");
+        "relay_host":"esp-pump.example.com","relay_ver":7,"relay_key":"00"})");
     App app;
     app.begin();
     MockTLS::failConnect = true;
@@ -348,7 +372,7 @@ void test_tick_waits_for_memory_before_a_check() {
 // slowest loop
 void test_tick_relay_waits_and_slow_loops_are_logged() {
     MockFS::put("/config.json", R"({"ssid":"Home","pass":"12345678","webpss":"strong-pass",
-        "ota_auto":false,"relay_host":"esp-pump.example.com","relay_ver":6,"relay_key":"00"})");
+        "ota_auto":false,"relay_host":"esp-pump.example.com","relay_ver":7,"relay_key":"00"})");
     App app;
     app.begin();
     ESP._heap = PublicIPResolver::MIN_TLS_HEAP - 1;

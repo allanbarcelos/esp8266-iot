@@ -194,10 +194,10 @@ test('toResponse refuses a broken answer', () => {
 // ── the Worker in front ──────────────────────────────────────────────────────
 
 test('relay connection needs WebSocket, version and secret', async () => {
-  const h = (extra) => ({ headers: { Upgrade: 'websocket', 'X-Relay-Version': '6', Authorization: `Bearer ${SECRET}`, ...extra } });
+  const h = (extra) => ({ headers: { Upgrade: 'websocket', 'X-Relay-Version': '7', Authorization: `Bearer ${SECRET}`, ...extra } });
   const go = (init) => worker.default.fetch(new Request('https://r.example/.relay', init), env);
   assert.equal((await go({})).status, 426);
-  assert.equal((await go(h({ 'X-Relay-Version': '5' }))).status, 426);
+  assert.equal((await go(h({ 'X-Relay-Version': '6' }))).status, 426);
   assert.equal((await go(h({ Authorization: 'Bearer nope' }))).status, 401);
   const noAuth = h();
   delete noAuth.headers.Authorization;
@@ -585,4 +585,18 @@ test('the latest release goes down once an hour', async () => {
     await device.alarm();
   }
   assert.equal(ws.sent.length, sent);
+});
+
+test('the device asks for the latest release: the tag, or "-" when GitHub does not say', async () => {
+  const ws = await connect();
+  let answer = () => new RealResponse(JSON.stringify({ tag_name: 'v162' }));
+  mock.method(globalThis, 'fetch', async () => answer());
+  await device.webSocketMessage(ws, msg('V', ''));
+  assert.equal(dec.decode(ws.sent.at(-1)), 'Vv162');
+  answer = () => new RealResponse('limit', { status: 403 });
+  await device.webSocketMessage(ws, msg('V', ''));
+  assert.equal(dec.decode(ws.sent.at(-1)), 'V-');
+  answer = () => { throw new Error('down'); };
+  await device.webSocketMessage(ws, msg('V', ''));
+  assert.equal(dec.decode(ws.sent.at(-1)), 'V-');
 });

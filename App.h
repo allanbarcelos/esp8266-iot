@@ -109,6 +109,10 @@ public:
         // the relay is not closed for them
         if (const char* ip = relay.takeIP(); ip[0]) resolver.offer(ip, now);
         if (const char* tag = relay.takeLatest(); tag[0]) ota.offerLatest(tag, now);
+        if (ota.relayCheckWanted()) {
+            if (relay.askLatest()) ota.relayAsked();
+            else ota.relayUnavailable();
+        }
         if (!slim) {
             if (resolver.due(now) && !relay.knowsIP()) net.want(NetArbiter::IP);
             if (dns.due(now)) net.want(NetArbiter::DNS);

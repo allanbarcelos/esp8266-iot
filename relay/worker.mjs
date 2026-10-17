@@ -15,9 +15,10 @@
 // takes. So while it is connected, the Worker does the rest of its network
 // for it: it polls the ntfy command topic ('C' frames down), sends its ntfy
 // posts ('P' up), tells it the public address it connects from ('I' down)
-// and the latest release on GitHub, once an hour ('V' down).
+// and the latest release on GitHub, once an hour and whenever the device
+// asks for it ('V' up, 'V' down: the tag, or "-" if GitHub did not say).
 
-const VERSION = 6;
+const VERSION = 7;
 const WAIT_MS = 8000;        // a request waits this long for the device to (re)connect
 const REPLY_MS = 20000;      // and this long for its answer
 const MAX_BODY = 2048;       // HttpServer::MAX_BODY
@@ -245,6 +246,8 @@ export class Device {
       await this.hello(JSON.parse(dec.decode(b.subarray(1))));
     } else if (type === 'P') {
       await this.post(dec.decode(b.subarray(1)).split('\0'));
+    } else if (type === 'V') {
+      await this.release(ws, true);
     }
   }
 
@@ -300,16 +303,19 @@ export class Device {
     await this.ctx.storage.setAlarm(next);
   }
 
-  // The latest release's tag ("v" and digits); on any failure nothing, and
-  // the device checks GitHub on its own
-  async release(ws) {
+  // The latest release's tag ("v" and digits). On any failure nothing, and
+  // the device checks GitHub on its own; asked by the device (its panel's
+  // check), "-" so it does not wait.
+  async release(ws, asked = false) {
+    let tag = '';
     try {
       const r = await fetch(RELEASES, { headers: { 'User-Agent': 'esp8266-dns-relay', Accept: 'application/vnd.github+json' } });
-      const tag = r.ok ? (await r.json()).tag_name : '';
-      if (/^v\d{1,9}$/.test(tag)) ws.send(new Uint8Array([86, ...enc.encode(tag)]));
+      tag = r.ok ? (await r.json()).tag_name : '';
     } catch {
       // GitHub unreachable or limited
     }
+    if (/^v\d{1,9}$/.test(tag)) ws.send(new Uint8Array([86, ...enc.encode(tag)]));
+    else if (asked) ws.send(new Uint8Array([86, 45]));
   }
 
   // New messages on the command topic go down; returns when to look again

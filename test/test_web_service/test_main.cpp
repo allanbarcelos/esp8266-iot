@@ -1865,6 +1865,28 @@ void test_update_check_redirects_and_shows_result() {
     TEST_ASSERT_FALSE(contains(f.out(), "http-equiv='refresh'"));
 }
 
+// With the relay up, the check is for its Worker to answer (App asks it)
+void test_update_check_with_the_relay_up() {
+    strlcpy(cfg.relay_host, "esp.example.com", sizeof(cfg.relay_host));
+    strlcpy(cfg.relay_secret, "s", sizeof(cfg.relay_secret));
+    cfg.relay_ver = RelayService::PROTOCOL;
+    Fixture f;
+    webNow = PANEL_TIME;   // the certificate needs the clock
+    MockHTTP::rawHttp = "HTTP/1.1 101 Switching Protocols\r\n\r\n";
+    f.relay.tick(0);
+    TEST_ASSERT_TRUE(f.relay.up());
+    f.post("/update/check");
+    TEST_ASSERT_EQUAL(303, f.srv.code);
+    TEST_ASSERT_TRUE(f.ota.relayCheckWanted());
+
+    // No relay service: the device checks on its own
+    Fixture g;
+    g.web.setRelay(nullptr);
+    g.post("/update/check");
+    TEST_ASSERT_TRUE(g.ota.pending());
+    TEST_ASSERT_FALSE(g.ota.relayCheckWanted());
+}
+
 void test_update_install_without_version() {
     Fixture f;
     f.post("/update/install");
@@ -3760,6 +3782,7 @@ int main() {
     RUN_TEST(test_update_saves_automatic);
     RUN_TEST(test_update_auto_write_fails);
     RUN_TEST(test_update_check_redirects_and_shows_result);
+    RUN_TEST(test_update_check_with_the_relay_up);
     RUN_TEST(test_update_install_without_version);
     RUN_TEST(test_update_install_shows_progress);
     RUN_TEST(test_iot_page_with_nothing_set);

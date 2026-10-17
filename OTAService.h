@@ -87,7 +87,13 @@ extern UpdaterVerifyClass& updaterSigningVerifier;
 // rejected by Update.end() does not get better on retry: the version is
 // marked in /ota.rejected (it survives the restart: without heap for the
 // panel, the check runs in recovery) and only a manual install downloads it
-// again.
+// again. What a check in recovery found goes to /ota.result, for the panel
+// of the next boot.
+//
+// A check asked for on the panel while the remote access relay is up asks its
+// Worker first, which reads the latest release on GitHub without a TLS
+// session on the device: the device often lacks the heap for GitHub's 16 KB
+// while its services run. With no answer (RELAY_WAIT), it checks on its own.
 class OTAService {
 public:
     OTAService(Logger& log, WiFiService& wifi) : _log(log), _wifi(wifi) {}
@@ -101,8 +107,10 @@ public:
         return _active() || _wantCheck || _wantInstall;
     }
 
-    // Check or download now or on the next tick (ntfy releases TLS)
+    // Check or download now or on the next tick (ntfy releases TLS). Not
+    // while the relay is asked: the turn would close it.
     bool wantsNet(unsigned long now) const {
+        if (_waitingRelay(now)) return false;
         if (busy()) return true;
         if (!_automatic || now >= DEADLINE) return false;
         if (_lastCheck == 0) return now >= FIRST_CHECK;
@@ -115,6 +123,7 @@ public:
 #endif
         _loadRejected();
         _loadPending();
+        if (!_slim) _loadResult();
     }
 
     // The latest release seen another way (the remote access relay's Worker
@@ -122,18 +131,38 @@ public:
     // newer one makes the device's own check (which also downloads it) due
     // now, on its network turn.
     void offerLatest(const char* tag, unsigned long now, const char* current = firmware_version) {
+        if (_askRelay && _relaySent) {
+            _askRelay = false;   // "-": the Worker could not tell, the device checks
+            if (parseTag(tag) < 0) return;
+            _wantCheck = false;
+            _lastCheck = now;
+            _checkInstall = false;
+            strlcpy(_latest, tag, sizeof(_latest));
+            _afterCheck(now, current);
+            return;
+        }
         if (busy() || parseTag(tag) < 0) return;
         _lastCheck = isNewer(tag, current) ? 0 : now;
     }
 
-    // The POST only arms the request; the tick runs it.
-    void requestCheck() {
+    // The POST only arms the request; the tick runs it, or the relay's Worker
+    // answers it (viaRelay: the relay is up)
+    void requestCheck(bool viaRelay = false, unsigned long now = millis()) {
         if (_active() || _wantCheck) return;
         _wantInstall = false;
         _nextRetry = 0;
         _wantCheck = true;
+        _askRelay = viaRelay;
+        _relaySent = false;
+        _askedAt = now;
         _note(Report::Checking, PSTR("Checking GitHub..."));
     }
+
+    // The panel's check, for the relay to ask its Worker (App): asked, or the
+    // relay went down and the device checks on its own
+    bool relayCheckWanted() const { return _wantCheck && _askRelay && !_relaySent; }
+    void relayAsked() { _relaySent = true; }
+    void relayUnavailable() { _askRelay = false; }
 
     void requestInstall() {
         if (_active() || _available[0] == '\0') return;
@@ -169,6 +198,11 @@ public:
             _nextRetry = 0;
             _download(_available, now);
             return;
+        }
+        if (_wantCheck && _askRelay) {
+            if (_waitingRelay(now)) return;
+            _askRelay = false;
+            _log.log(PSTR("OTA: no answer from the relay"));
         }
         if (_wantCheck) {
             _wantCheck = false;
@@ -234,6 +268,7 @@ public:
     }
 
     static constexpr unsigned long FIRST_CHECK    = 20000UL;    // first check after boot
+    static constexpr unsigned long RELAY_WAIT     = 15000UL;    // the Worker's answer to a check
     // Texts used in more than one place (each PSTR is its own copy in flash)
     static constexpr char T_NO_MEM[] PROGMEM = "Not enough memory";
     static constexpr char T_NO_MEM_LOG[] PROGMEM = "OTA: not enough memory";
@@ -264,6 +299,7 @@ public:
     static constexpr size_t        OTA_PATH_CAP   = 1280;
     static constexpr const char*   PENDING_PATH   = "/ota.pending";
     static constexpr const char*   REJECTED_PATH  = "/ota.rejected";
+    static constexpr const char*   RESULT_PATH    = "/ota.result";
 
 private:
     Logger&      _log;
@@ -277,6 +313,9 @@ private:
     bool             _wantCheck     = false;
     bool             _wantInstall   = false;
     bool             _slim          = false;
+    bool             _askRelay      = false;   // the panel's check goes to the relay first
+    bool             _relaySent     = false;   // and the relay asked its Worker
+    unsigned long    _askedAt       = 0;       // when the panel asked
     bool             _unknownLen    = false;
     Report           _report        = Report::None;
     char             _detail[80]    = {};
@@ -301,12 +340,18 @@ private:
         va_end(args);
     }
 
+    bool _waitingRelay(unsigned long now) const {
+        return _wantCheck && _askRelay && now - _askedAt < RELAY_WAIT;
+    }
+
+    // Short of heap, it restarts (_recoverHeap): the panel says so, with the numbers
     bool _tlsReady() {
         uint32_t heap  = ESP.getFreeHeap();
         uint32_t block = ESP.getMaxFreeBlockSize();
         _log.log(PSTR("OTA heap %u block %u"), heap, block);
         if (heap >= GITHUB_HEAP && block >= GITHUB_BLOCK) return true;
-        _note(Report::Failed, T_NO_MEM);
+        _note(Report::Failed, PSTR("Not enough memory (heap %u, largest block %u): restarting to try with "
+                                   "the other services paused"), heap, block);
         _log.log(T_NO_MEM_LOG);
         return false;
     }
@@ -571,18 +616,15 @@ private:
         _afterCheck(now);
     }
 
-    void _afterCheck(unsigned long now) {
-        if (!isNewer(_latest, firmware_version)) {
+    void _afterCheck(unsigned long now, const char* current = firmware_version) {
+        if (!isNewer(_latest, current)) {
             bool restore = _slim;
             _available[0] = '\0';
             _tries = 0;
             _retryDelay = 0;
             _clearPending();
             _note(Report::UpToDate, PSTR("Firmware is up to date"));
-            if (restore) {
-                _log.log(T_RECOVERED);
-                _wifi.scheduleRestart(1500);
-            }
+            if (restore) _restore();
             return;
         }
         strlcpy(_available, _latest, sizeof(_available));
@@ -596,10 +638,7 @@ private:
             _clearPending();
             _note(Report::Failed, PSTR("%s rejected; waiting for another version"), _available);
             _log.log(PSTR("OTA: %s was already rejected"), _available);
-            if (restore) {
-                _log.log(T_RECOVERED);
-                _wifi.scheduleRestart(1500);
-            }
+            if (restore) _restore();
             return;
         }
         _download(_available, now);
@@ -860,10 +899,7 @@ private:
             _tries = 0;
             _retryDelay = 0;
             _clearPending();
-            if (restore) {
-                _log.log(PSTR("OTA: recovery over, restoring the panel"));
-                _wifi.scheduleRestart(1500);
-            }
+            if (restore) _restore();
         }
         _finish();
     }
@@ -915,12 +951,38 @@ private:
             _wantCheck = false;
             _note(Report::Failed, PSTR("OTA gave up after recovery"));
             _log.log(PSTR("OTA: gave up after recovery"));
-            _wifi.scheduleRestart(1500);
+            _restore();
             return;
         }
         if (!_savePending(_available, boots)) _log.log(PSTR("OTA: could not save the recovery request"));
         else _log.log(PSTR("OTA: recovery on the next boot"));
         _wifi.scheduleRestart(1500);
+    }
+
+    // Out of recovery: what it found stays for the panel of the next boot
+    void _restore() {
+        File f = LittleFS.open(RESULT_PATH, "w");
+        if (f) {
+            f.write((uint8_t)('0' + (uint8_t)_report));
+            f.write((const uint8_t*)_detail, strlen(_detail));
+            f.close();
+        }
+        _log.log(T_RECOVERED);
+        _wifi.scheduleRestart(1500);
+    }
+
+    void _loadResult() {
+        File f = LittleFS.open(RESULT_PATH, "r");
+        if (!f) return;
+        char buf[sizeof(_detail) + 1];
+        size_t n = f.readBytes(buf, sizeof(buf) - 1);
+        f.close();
+        LittleFS.remove(RESULT_PATH);
+        buf[n] = '\0';
+        uint8_t r = (uint8_t)(buf[0] - '0');
+        if (n < 2 || r > (uint8_t)Report::Failed) return;
+        _report = (Report)r;
+        strlcpy(_detail, buf + 1, sizeof(_detail));
     }
 
     bool _savePending(const char* tag, uint8_t boots) {

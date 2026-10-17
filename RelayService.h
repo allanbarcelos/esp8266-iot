@@ -42,7 +42,7 @@
 // relay stays down longer than GRACE_MS, the ntfy stream takes over.
 class RelayService : public PostLink {
 public:
-    static constexpr uint8_t       PROTOCOL      = 6;
+    static constexpr uint8_t       PROTOCOL      = 7;
     static constexpr unsigned long CONNECT_MS    = 5000UL;
     static constexpr unsigned long RECONNECT_MS  = 2000UL;
     static constexpr unsigned long PING_MS       = 30000UL;
@@ -96,6 +96,13 @@ public:
     // latest release it found on GitHub: each once ("" when none new)
     const char* takeIP()     { return _take(_public, _ipNew); }
     const char* takeLatest() { return _take(_latest, _latestNew); }
+    // The panel's update check: the Worker asks GitHub now and answers 'V'
+    // (the tag, or "-" if it could not tell)
+    bool askLatest() {
+        if (!_open) return false;
+        _s->ws.send(WsClient::BINARY, "V", 1);
+        return true;
+    }
     // The Worker gave this connection's address: no check of the device's own
     bool knowsIP() const { return _open && _public[0]; }
 
