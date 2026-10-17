@@ -13,8 +13,20 @@
 // outside quotes: no regex literal and no template string.
 
 // One column per language (en|pt|es|fr), rows separated by ~. An empty
-// cell is the English text and ^ repeats the language before it.
-var IM = "@MATRIX@".split('|').map(function (c) { return c.split('~'); }),
+// cell is the English text and ^ repeats the language before it. It comes
+// compressed by context mixing (web/cm.js, which tools/embed_web.py puts
+// before this file): decoded once per version of this script and kept in
+// the browser (localStorage), when it lets.
+function IC() {
+    var u = document.currentScript.src.split('#')[0], v;
+    try { if (localStorage.getItem('i18n.v') == u) v = localStorage.getItem('i18n'); } catch (e) {}
+    if (!v) {
+        v = IZ("@CM@", @ROWS@);
+        try { localStorage.setItem('i18n', v); localStorage.setItem('i18n.v', u); } catch (e) {}
+    }
+    return v;
+}
+var IM = IC().split('|').map(function (c) { return c.split('~'); }),
     IG = ['en', 'pt', 'es', 'fr'],
     IB = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
     IL = (function () {

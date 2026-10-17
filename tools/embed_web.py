@@ -11,8 +11,10 @@ decompresses it and caches it. The URL carries part of the content's SHA-256
 Panel text: the firmware sends a marker (` plus two base-62 characters, the
 row in web/i18n.tsv) in place of each text; web/i18n.js carries the text of
 every language in one matrix and writes the page in the chosen language. So
-the text goes into the flash once, gzipped, and the languages share the
-words they have in common. Generated from the table:
+the text goes into the flash once and the languages share the words they
+have in common: the matrix is compressed by context mixing, each language
+predicted from the one before it (tools/i18n_cm.py; web/cm.js decodes it in
+the browser). Generated from the table:
   I18n.h           L_<key> macros with the markers, for the C++
   test/i18n_en.h   the English text, for the native tests to read the pages
   web/iot.js       L('English text') becomes L(row)
@@ -21,6 +23,8 @@ words they have in common. Generated from the table:
     python tools/embed_web.py --min-iot FILE   writes web/iot.js minified, with
                                         its L('English') kept: web/iot.test.mjs runs
                                         on it too (IOT_JS=FILE)
+    python tools/embed_web.py --min-cm FILE    the same for web/cm.js (CM_JS=FILE
+                                        for web/cm.test.mjs)
     python tools/embed_web.py --check   only checks (CI uses it); exits with an
                                         error if a generated file does not match
 
@@ -28,11 +32,14 @@ The check compares the decompressed content, not the gzip bytes: another
 compressor (zopfli when installed, otherwise zlib) gives other bytes without
 being wrong.
 """
+import base64
 import gzip
 import hashlib
 import os
 import re
 import sys
+
+import i18n_cm
 
 try:
     import zopfli.gzip as _zopfli
@@ -148,8 +155,9 @@ def minify_css(src):
 def minify_js(src):
     """Strips comments and spaces outside quotes.
 
-    A space only stays between two letters/digits (else if, return x). It does
-    not understand regex literals or template strings: the code in web/ uses none.
+    A space only stays between two letters/digits (else if, return x). A / is
+    division: it does not understand regex literals, block comments or
+    template strings, and the code in web/ uses none.
     """
     word = re.compile(r"[\w$]")
     out = []
@@ -169,8 +177,8 @@ def minify_js(src):
             i = n if i < 0 else i
             gap = True
             continue
-        elif ch == "/" or ch == "`":
-            raise SystemExit(f"'{ch}' outside quotes: the minifier does not handle it")
+        elif ch == "`" or src.startswith("/*", i):
+            raise SystemExit(f"'{src[i:i + 2]}' outside quotes: the minifier does not handle it")
         elif ch.isspace():
             gap = True
             i += 1
@@ -196,7 +204,12 @@ def build():
         if name == "iot.js":
             src = js_rows(src, rows)
         if name == "i18n.js":
-            src = src.replace("@MATRIX@", matrix(rows).replace("\\", "\\\\"))
+            # The decoder first; the matrix as context-mixing bytes, in base64
+            # (gzip takes back most of what base64 adds)
+            with open(os.path.join(ROOT, "web", "cm.js"), encoding="utf-8") as f:
+                cm = f.read()
+            packed = base64.b64encode(i18n_cm.encode(matrix(rows))).decode()
+            src = cm + src.replace("@CM@", packed).replace("@ROWS@", str(len(rows)))
         text = (minify_css if name.endswith(".css") else minify_js)(src).encode("utf-8")
         out[sym] = (name, text)
     return rows, out
@@ -297,12 +310,13 @@ def check(rows, assets):
 
 
 def main():
-    if "--min-iot" in sys.argv[1:]:
-        with open(os.path.join(ROOT, "web", "iot.js"), encoding="utf-8") as f:
-            text = minify_js(f.read())
-        with open(sys.argv[sys.argv.index("--min-iot") + 1], "w", encoding="utf-8", newline="\n") as f:
-            f.write(text)
-        return
+    for flag, name in (("--min-iot", "iot.js"), ("--min-cm", "cm.js")):
+        if flag in sys.argv[1:]:
+            with open(os.path.join(ROOT, "web", name), encoding="utf-8") as f:
+                text = minify_js(f.read())
+            with open(sys.argv[sys.argv.index(flag) + 1], "w", encoding="utf-8", newline="\n") as f:
+                f.write(text)
+            return
     rows, assets = build()
     if "--check" in sys.argv[1:]:
         errors = check(rows, assets)
