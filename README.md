@@ -5,6 +5,7 @@
 ## 📑 Contents
 
 - [About](#-about)
+- [Compared with typical smart devices](#-compared-with-typical-smart-devices)
 - [Features](#-features)
 - [Screenshots](#-screenshots)
 - [Supported modules](#-supported-modules)
@@ -57,6 +58,25 @@ It was designed inside the ESP8266's limits rather than ported to them. Every fe
 - **Tested off the device:** 100 % line, function and branch coverage on native tests, sanitizers, static analysis and fuzzing on every change, and each release runs on a real ESP-01 before the next.
 
 It works without internet (setup access point, local panel and API, the sensor and the rule keep running) and with it (DDNS, remote access, notifications, updates).
+
+## 🔓 Compared with typical smart devices
+
+| | Typical cloud smart devices | ESP8266 IoT |
+| --- | --- | --- |
+| **Account** | Required, with the vendor | None |
+| **Works without internet** | Often not; commands go through the vendor's cloud | Yes: panel, API, sensor and rules run on the device |
+| **If the vendor shuts down or changes plans** | The device may stop working | Nothing changes: you own the firmware |
+| **Your data** | On the vendor's servers | On the device and on services you choose |
+| **Remote access** | Through the vendor's app and cloud | Your own HTTPS address, no open ports (optional) |
+| **Panel security** | Usually a password on the vendor's account | Password + mandatory 2FA on the device itself |
+| **Updates** | Pushed by the vendor, closed | Signed, open source, at a time you pick |
+| **Integration** | Limited to the vendor's ecosystem | Home Assistant (MQTT), local API, ntfy |
+| **Open source** | No | Yes (MIT): audit it, change it, build it |
+| **Cost** | Device price, sometimes a subscription | A ~$2 board and a module |
+| **Setup** | Install the app, create an account | Flash from the browser, pick the sensor from a list |
+| **Hardware** | Ready to use, in a finished case | DIY: an ESP-01 and a module (ready-made boards exist) |
+| **Safety certification** | Usually certified for mains | Depends on the parts you choose |
+| **Support** | The vendor's | The community's |
 
 ## ✨ Features
 
