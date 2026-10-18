@@ -59,6 +59,9 @@ HTML_TEXT(_HTML_FOOT_B,
 // Panel languages (Settings), in their own names (separated by \0, as
 // entities: page text is ASCII, see HtmlPack.h); "" = the browser's
 static const char* const _LANG_CODES[] = {"en", "pt", "es", "fr"};
+
+// The days of the week, from Sunday: one 3-byte marker each
+static const char _DAYS[] PROGMEM = L_SUN L_MON L_TUE L_WED L_THU L_FRI L_SAT;
 static const char _LANG_NAMES[] PROGMEM = "English\0Portugu&ecirc;s\0Espa&ntilde;ol\0Fran&ccedil;ais";
 
 // Official time zones, from UTC-12 to UTC+14, in minutes, and a place for
@@ -1081,6 +1084,7 @@ private:
         for (size_t i = 0; i < sizeof(_LANG_CODES) / sizeof(_LANG_CODES[0]); i++, name += strlen_P(name) + 1)
             _option(_LANG_CODES[i], name, strcmp(_cfg.lang, _LANG_CODES[i]) == 0);
         _selectEnd();
+        _restartFields();
         _button(S_SAVE);
         _boxEnd();
 
@@ -1165,6 +1169,20 @@ private:
             _errorPage(H(L_INVALID_LANG), P_CONFIG);
             return;
         }
+        // The restart's fields: without them (an older form) it stays as it was
+        uint16_t rstTime = _cfg.rst_time;
+        uint8_t rstDays = _cfg.rst_days;
+        String rstArg = _server.arg("rbt");
+        if (rstArg.length()) {
+            if (!parseHhmm(rstArg, rstTime)) {
+                _errorPage(H(L_INVALID_TIME), P_CONFIG);
+                return;
+            }
+            rstDays = 0;
+            char day[] = "d0";
+            for (uint8_t i = 0; i < 7; i++, day[1]++)
+                if (_flag(day)) rstDays |= (uint8_t)(1 << i);
+        }
         int8_t bat = -1;
         String batArg = _server.arg("bat_sda");
         if (batArg.length() && (!IoTService::parsePin(batArg, bat) || !PowerService::pinsFree(bat, _cfg.iot))) {
@@ -1207,6 +1225,8 @@ private:
         strlcpy(_cfg.hostname, host.c_str(), sizeof(_cfg.hostname));
         _cfg.tz = tz;
         _cfg.bat_sda = bat;
+        _cfg.rst_days = rstDays;
+        _cfg.rst_time = rstTime;
         strlcpy(_cfg.lang, lang.c_str(), sizeof(_cfg.lang));
         if (!_store.save()) {
             _errorPage(S_SAVE_FAILED, P_CONFIG);
@@ -1216,6 +1236,24 @@ private:
         if (_mqtt) _mqtt->reconnect();   // discovery carries the new name
         if (_power) _power->begin();
         _savedPage(H(L_SETTINGS_SAVED), P_CONFIG);
+    }
+
+    // Automatic restart: a box per day of the week (d0 = Sunday) and the time
+    void _restartFields() {
+        _p(H("<fieldset class='dw'><legend>" L_RESTART_DAYS "</legend>"));
+        char b[8] = {};
+        for (uint8_t i = 0; i < 7; i++) {
+            _p(H("<label><input type='checkbox' name='d"));
+            b[0] = (char)('0' + i);
+            b[1] = '\0';
+            _s(b);
+            _p(_cfg.rst_days >> i & 1 ? H("' value='1' checked>") : H("' value='1'>"));
+            memcpy_P(b, _DAYS + 3 * i, 3);   // the day's marker
+            _s(b);
+            _p(H("</label>"));
+        }
+        _p(H("</fieldset>"));
+        _input(H(L_RESTART_TIME), H("rbt"), _hhmm(_cfg.rst_time, b), H("type='time' required"));
     }
 
     void _handleLog() {

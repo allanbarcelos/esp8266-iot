@@ -95,6 +95,7 @@ public:
         if (!ota.slim()) web.tick();
         net.at(NetArbiter::WIFI);
         wifi.tick(now);
+        if (_restartDaily.due(iot.unixTime(), config.tz, config.rst_time, config.rst_days, now)) wifi.dailyRestart();
         wifi.tickRestart(now);
         clock.tick(now);
 
@@ -170,7 +171,8 @@ public:
     }
 
 private:
-    Daily _otaDaily;   // the update check, at the time set on the Update page
+    Daily _otaDaily;       // the update check, at the time set on the Update page
+    Daily _restartDaily;   // the automatic restart, on the days and at the time set in Settings
 
     // The heap a new session needs: GitHub's 16 KB buffer, or the others' 4 KB
     static NetArbiter::Need _need(NetArbiter::Who who) {

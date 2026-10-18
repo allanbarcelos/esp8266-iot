@@ -191,6 +191,11 @@ input, select {
 }
 .sw { display: flex; align-items: center; gap: 8px; }
 .sw input { width: auto; margin: 0; accent-color: var(--ok); }
+/* Days of the week: boxes side by side */
+.dw { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 12px 0 0; padding: 0; border: 0; }
+.dw legend { width: 100%; padding: 0; font-size: 14px; }
+.dw label { display: flex; align-items: center; gap: 4px; margin: 0; }
+.dw input { width: auto; margin: 0; accent-color: var(--ok); }
 button, .b {
     display: block;
     width: 100%;

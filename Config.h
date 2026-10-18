@@ -88,6 +88,8 @@ struct Config {
     uint8_t ntfy_poll                 = 5;    // seconds between the relay Worker's checks of the command topic
     bool    ota_auto                  = true; // missing from the JSON keeps automatic updates on
     uint16_t ota_time                 = 540;  // daily update check, minute of the day (local; 09:00)
+    uint8_t rst_days                  = 0x7F; // automatic restart: days of the week (bit 0 = Sunday); 0 = never
+    uint16_t rst_time                 = 0;    // and its minute of the day (local; 00:00)
     char    api_token[33]             = {};   // local API (Bearer); generated with the IoT setup
     char    mqtt_host[64]             = {};   // "host" or "host:port"; "" turns MQTT off
     char    mqtt_user[32]             = {};

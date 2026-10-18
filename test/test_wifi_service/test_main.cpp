@@ -249,13 +249,13 @@ void test_ota_holds_off_watchdogs() {
     wifi.setOTAInProgress(true);
     ESP._heap = 1000;
     for (int i = 1; i <= 10; i++) wifi.tickRestart(i * W::MEM_CHECK_INTERVAL);
-    wifi.tickRestart(W::DAILY_RESTART + 1);
+    wifi.dailyRestart();
     TEST_ASSERT_FALSE(wifi.restartPending());
 }
 
 void test_daily_restart() {
     W wifi(cfg, logger);
-    wifi.tickRestart(W::DAILY_RESTART + 1);
+    wifi.dailyRestart();
     TEST_ASSERT_TRUE(wifi.restartPending());
     TEST_ASSERT_TRUE(logHas(logger, "Daily restart"));
 }

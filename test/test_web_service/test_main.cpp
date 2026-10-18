@@ -956,6 +956,39 @@ void test_time_zone() {
     TEST_ASSERT_EQUAL_STRING("", cfg.dev_name);
 }
 
+// Automatic restart: a box per day (d0 = Sunday) and the time; every day
+// at 00:00 by default; no box, never. An older form without the time keeps it.
+void test_restart_schedule() {
+    Fixture f;
+    f.get("/config");
+    TEST_ASSERT_TRUE(contains(f.out(), "<input type='checkbox' name='d0' value='1' checked>Sun</label>"));
+    TEST_ASSERT_TRUE(contains(f.out(), "<input type='checkbox' name='d6' value='1' checked>Sat</label>"));
+    TEST_ASSERT_TRUE(contains(f.out(), "<input name='rbt' value='00:00' type='time' required>"));
+
+    f.post("/config/save", {{"name", ""}, {"hostname", ""}, {"rbt", "03:30"}, {"d1", "1"}, {"d5", "1"}});
+    TEST_ASSERT_EQUAL(200, f.srv.code);
+    TEST_ASSERT_EQUAL(0x22, cfg.rst_days);   // Monday and Friday
+    TEST_ASSERT_EQUAL(3 * 60 + 30, cfg.rst_time);
+    TEST_ASSERT_TRUE(contains(MockFS::files["/config.json"], "\"rbd\":34,\"rbt\":210"));
+    f.get("/config");
+    TEST_ASSERT_TRUE(contains(f.out(), "name='d0' value='1'>Sun"));
+    TEST_ASSERT_TRUE(contains(f.out(), "name='d1' value='1' checked>Mon"));
+    TEST_ASSERT_TRUE(contains(f.out(), "value='03:30'"));
+
+    f.post("/config/save", {{"name", ""}, {"hostname", ""}, {"rbt", "03:30"}});
+    TEST_ASSERT_EQUAL(0, cfg.rst_days);   // never
+
+    f.post("/config/save", {{"name", ""}, {"hostname", ""}, {"rbt", "25:00"}, {"d0", "1"}});
+    TEST_ASSERT_EQUAL(400, f.srv.code);
+    TEST_ASSERT_TRUE(contains(f.out(), "Invalid time"));
+    TEST_ASSERT_EQUAL(0, cfg.rst_days);
+
+    f.post("/config/save", {{"name", ""}, {"hostname", ""}});
+    TEST_ASSERT_EQUAL(200, f.srv.code);
+    TEST_ASSERT_EQUAL(0, cfg.rst_days);
+    TEST_ASSERT_EQUAL(3 * 60 + 30, cfg.rst_time);
+}
+
 // Panel language: Settings saves it and the footer passes it to i18n.js,
 // after the #; blank = the browser's. The page itself carries markers, not
 // English (out is the English that the test browser writes back).
@@ -3750,6 +3783,7 @@ int main() {
     RUN_TEST(test_settings_refuse_invalid_name_or_hostname);
     RUN_TEST(test_time_zone);
     RUN_TEST(test_panel_language);
+    RUN_TEST(test_restart_schedule);
     RUN_TEST(test_panel_language_escaped);
     RUN_TEST(test_local_time_on_status);
     RUN_TEST(test_iot_time_window);

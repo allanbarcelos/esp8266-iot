@@ -81,17 +81,11 @@ public:
         _processReconnect(now);
     }
 
-    // Checks a scheduled restart and the memory/uptime watchdogs
+    // Checks a scheduled restart and the memory watchdog
     void tickRestart(unsigned long now) {
-        if (!_restartPending && !_otaInProgress) {
-            if (now - _lastMemCheck >= MEM_CHECK_INTERVAL) {
-                _lastMemCheck = now;
-                _checkMemory();
-            }
-            if (now > DAILY_RESTART) {
-                _log.log(PSTR("Daily restart scheduled"));
-                scheduleRestart(1000);
-            }
+        if (!_restartPending && !_otaInProgress && now - _lastMemCheck >= MEM_CHECK_INTERVAL) {
+            _lastMemCheck = now;
+            _checkMemory();
         }
 
         if (_restartPending && (long)(now - _restartAt) >= 0) {
@@ -104,6 +98,14 @@ public:
         _log.log(PSTR("Restart scheduled in %lu ms"), delayMs);
         _restartPending = true;
         _restartAt = millis() + delayMs;
+    }
+
+    // The automatic restart, on the days and at the time set in Settings
+    // (App, Schedule.h); not in the middle of an update
+    void dailyRestart() {
+        if (_otaInProgress) return;
+        _log.log(PSTR("Daily restart scheduled"));
+        scheduleRestart(1000);
     }
 
     void notifySuccess() { _failCount = 0; }
@@ -142,7 +144,6 @@ public:
     static constexpr unsigned long CONNECT_TIMEOUT    = 10000UL;
     static constexpr unsigned long STATUS_INTERVAL    = 15000UL;
     static constexpr unsigned long MEM_CHECK_INTERVAL = 10000UL;
-    static constexpr unsigned long DAILY_RESTART      = 86400000UL;
     static constexpr unsigned long RECONNECT_DELAY    = 500UL;
     static constexpr uint8_t       MAX_FAILURES       = 5;
     static constexpr uint8_t       MEM_STRIKES        = 3;

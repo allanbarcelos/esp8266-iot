@@ -75,11 +75,30 @@ void test_begin_without_config_enters_ap_mode() {
 void test_tick_runs_every_service() {
     App app;
     app.begin();
-    setMillis(WiFiService::DAILY_RESTART + 1);
+    setMillis(1000);
     MockBrowser b{[&]() { app.tick(); }};
     b.request(HTTP_GET, "/status");
     TEST_ASSERT_EQUAL(200, b.code);
+    TEST_ASSERT_FALSE(app.wifi.restartPending());
+}
+
+// The automatic restart on the days and at the time set (the host's clock
+// is set: the time is now), not right after boot; no day, never
+void test_tick_restarts_at_the_time_set() {
+    App app;
+    app.begin();
+    app.config.ota_auto = false;
+    app.ota.setAutomatic(false);
+    app.config.rst_time = (uint16_t)(time(nullptr) % 86400 / 60);
+    app.config.rst_days = 0;
+    setMillis(3600000UL);
+    app.tick();
+    TEST_ASSERT_FALSE(app.wifi.restartPending());
+    app.config.rst_days = Daily::EVERY_DAY;
+    setMillis(3600001UL);
+    app.tick();
     TEST_ASSERT_TRUE(app.wifi.restartPending());
+    TEST_ASSERT_TRUE(logHas(app.logger, "Daily restart scheduled"));
 }
 
 void test_begin_ota_recovery() {
@@ -345,6 +364,7 @@ void test_tick_runs_the_daily_update_check() {
     App app;
     app.begin();
     app.config.ota_time = (uint16_t)(time(nullptr) % 86400 / 60);
+    app.config.rst_days = 0;   // no restart in the way, whatever the hour
     setMillis(1000);
     app.tick();
     TEST_ASSERT_FALSE(app.ota.pending());
@@ -464,6 +484,7 @@ int main() {
     RUN_TEST(test_tick_pauses_mqtt_for_the_version_check);
     RUN_TEST(test_tick_waits_for_memory_before_a_check);
     RUN_TEST(test_tick_runs_the_daily_update_check);
+    RUN_TEST(test_tick_restarts_at_the_time_set);
     RUN_TEST(test_tick_relay_waits_and_slow_loops_are_logged);
     RUN_TEST(test_tick_open_stream_goes_on);
     return UNITY_END();

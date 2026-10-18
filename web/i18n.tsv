@@ -169,6 +169,15 @@ OFF	off	desligado	apagado	éteint
 AVAILABLE	Available	Disponível	Disponible	Disponible
 AUTO_UPDATE	Automatic update	Atualização automática	Actualización automática	Mise à jour automatique
 CHECK_TIME	Daily check at (local time)	Verificação diária às (hora local)	Comprobación diaria a las (hora local)	Vérification quotidienne à (heure locale)
+RESTART_DAYS	Automatic restart (no day: never)	Reinício automático (nenhum dia: nunca)	Reinicio automático (ningún día: nunca)	Redémarrage automatique (aucun jour : jamais)
+RESTART_TIME	Restart at (local time)	Reiniciar às (hora local)	Reiniciar a las (hora local)	Redémarrer à (heure locale)
+SUN	Sun	Dom	Dom	Dim
+MON	Mon	Seg	Lun	Lun
+TUE	Tue	Ter	Mar	Mar
+WED	Wed	Qua	Mié	Mer
+THU	Thu	Qui	Jue	Jeu
+FRI	Fri	Sex	Vie	Ven
+SAT	Sat	Sáb	Sáb	Sam
 CHECK_NOW	Check now	Verificar agora	Comprobar ahora	Vérifier maintenant
 INSTALL_VERSION	Install this version	Instalar esta versão	Instalar esta versión	Installer cette version
 AUTO_UPDATE_ON	Automatic update on	Atualização automática ligada	Actualización automática activada	Mise à jour automatique activée

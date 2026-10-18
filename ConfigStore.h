@@ -203,6 +203,7 @@ private:
         CS_CFG("tzo", "tz", tz, T_I16, 0), CS_CFG("bat", "bat_sda", bat_sda, T_I8, -1),
         CS_CFG("lng", "lang", lang, T_CHARS, 0), CS_CFG("ota", "ota_auto", ota_auto, T_BOOL, 1),
         CS_CFG("otm", "ota_time", ota_time, T_U16, 540),
+        CS_CFG("rbd", "reboot_days", rst_days, T_U8, 0x7F), CS_CFG("rbt", "reboot_time", rst_time, T_U16, 0),
         CS_CFG("api", "api_token", api_token, T_CHARS, 0), CS_CFG("cft", "cf_token", cf_token, T_CHARS, 0),
         CS_CFG("cfz", "cf_zone", cf_zone, T_CHARS, 0), CS_CFG("cfh", "cf_host", cf_host, T_CHARS, 0),
         CS_CFG("cfr", "cf_record", cf_record, T_CHARS, 0), CS_CFG("cfa", "cf_account", cf_account, T_CHARS, 0),
