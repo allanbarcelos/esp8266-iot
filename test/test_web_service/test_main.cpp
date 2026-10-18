@@ -825,8 +825,8 @@ void test_cloudflare_without_setup_service() {
 void test_name_in_title_and_header() {
     Fixture f;
     f.get("/status");
-    TEST_ASSERT_TRUE(contains(f.out(), "<title>ESP8266 DNS</title>"));
-    TEST_ASSERT_TRUE(contains(f.out(), "<b>&#9679; ESP8266 DNS</b>"));
+    TEST_ASSERT_TRUE(contains(f.out(), "<title>ESP8266 IoT</title>"));
+    TEST_ASSERT_TRUE(contains(f.out(), "<b>&#9679; ESP8266 IoT</b>"));
     strlcpy(cfg.dev_name, "Sala <1>", sizeof(cfg.dev_name));
     f.get("/status");
     TEST_ASSERT_TRUE(contains(f.out(), "<title>Sala &lt;1&gt;</title>"));

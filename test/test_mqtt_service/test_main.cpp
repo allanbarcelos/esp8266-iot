@@ -575,7 +575,7 @@ void test_discovery_device_and_topics() {
     TEST_ASSERT_EQUAL_STRING("esp8266iot_00dead", doc["dev"]["ids"]);
     TEST_ASSERT_EQUAL_STRING("ESP8266 IoT", doc["dev"]["name"]);
     TEST_ASSERT_EQUAL_STRING(firmware_version, doc["dev"]["sw"]);
-    TEST_ASSERT_EQUAL_STRING("esp8266-dns", doc["o"]["name"]);
+    TEST_ASSERT_EQUAL_STRING("esp8266-iot", doc["o"]["name"]);
     TEST_ASSERT_EQUAL_STRING("esp8266iot/00dead/state", doc["stat_t"]);
     TEST_ASSERT_EQUAL_STRING("esp8266iot/00dead/avail", doc["avty_t"]);
     TEST_ASSERT_EQUAL_STRING("esp8266iot/00dead/cmd", doc["cmd_t"]);

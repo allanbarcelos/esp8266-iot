@@ -16,7 +16,7 @@ Write down the version under test and the result of each item in the table at th
 
 ## 1. Flashing with the web installer
 
-1. Open the installer (`https://allanbarcelos.github.io/esp8266-dns/`), tie GPIO0 to GND and plug in the adapter.
+1. Open the installer (`https://allanbarcelos.github.io/esp8266-iot/`), tie GPIO0 to GND and plug in the adapter.
 2. Click **Install on the ESP-01**, pick the port and accept erasing the device.
 3. When it finishes, unplug the adapter, release GPIO0 and plug it in again.
 

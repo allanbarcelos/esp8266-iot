@@ -1,6 +1,6 @@
 # 📘 ESP8266 IoT — Cloudflare DDNS, OTA and local IoT
 
-[![Installs](https://img.shields.io/endpoint?url=https://esp8266-installs.allan-d68.workers.dev/badge)](https://allanbarcelos.github.io/esp8266-dns/)
+[![Installs](https://img.shields.io/endpoint?url=https://esp8266-installs.allan-d68.workers.dev/badge)](https://allanbarcelos.github.io/esp8266-iot/)
 
 ## 📑 Contents
 
@@ -79,7 +79,7 @@ It works without internet (setup access point, local panel and API, the sensor a
 | **Persistent log** | Dated lines in LittleFS (3 rotating files, packed), a day of history, downloadable |
 | **Status** | Memory, network turn, slowest loop, stack, flash, Wi-Fi, last crash |
 | **Setup mode** | An access point with a per-device password for the first configuration |
-| **Web installer** | Flashes an ESP-01 from Chrome or Edge, no tools to install ([installer](https://allanbarcelos.github.io/esp8266-dns/)); finished installs are counted on the badge above |
+| **Web installer** | Flashes an ESP-01 from Chrome or Edge, no tools to install ([installer](https://allanbarcelos.github.io/esp8266-iot/)); finished installs are counted on the badge above |
 
 ## 🧱 Supported modules
 
@@ -164,7 +164,7 @@ Each service is a header with dependencies injected by reference, composed in la
 
 ## 🚀 First use
 
-1. Flash from the browser with the **[web installer](https://allanbarcelos.github.io/esp8266-dns/)** (Chrome or Edge on a computer, nothing to install) or over serial (see [Local build](#-local-build)). Either way, the ESP-01 needs **GPIO0 tied to GND** when the adapter is plugged in; release it after flashing and plug it in again.
+1. Flash from the browser with the **[web installer](https://allanbarcelos.github.io/esp8266-iot/)** (Chrome or Edge on a computer, nothing to install) or over serial (see [Local build](#-local-build)). Either way, the ESP-01 needs **GPIO0 tied to GND** when the adapter is plugged in; release it after flashing and plug it in again.
 2. With no Wi-Fi configured, the ESP creates the **`ESP_Config`** network. The password is **drawn per device** on first boot (12 characters) and printed on the serial port every 30 s (`AP ESP_Config, password: ...`); the web installer reads it with the **Read the device password** button. Afterwards it shows on the panel, under **Status**. For a fixed password, build with `-DAP_PASSWORD=\"...\"`.
 3. Open `http://192.168.4.1`, enter the Wi-Fi credentials and **set the panel user and password** (at least 8 characters).
 4. After the reboot, open the ESP's local IP and **sign in** with the user and password. The panel shows an authenticator key once, as text and as a QR code. Scan it or type it into an authenticator app and enter the 6-digit code. The code is checked against the device clock; until SNTP has set it (for example on the setup access point), the browser sends its own time with the form. Until that code is accepted, the other pages stay closed. The side menu (a button at the top on a phone) leads to every page; **Home** sums up the network, the sensor and actuator in use and, once there is a Cloudflare token, the remote address and the DDNS record. Then configure **Cloudflare**, **ntfy** and **IoT** as needed; each part is optional. The **Settings** page holds what applies to the whole device: the Cloudflare API token (with **Unregister**, which removes the token and every Cloudflare setting from the device), the panel password and the authenticator, and a **name** (shown at the top of the panel and in Home Assistant), a **hostname** (what the router shows in its DHCP list; it applies on the next Wi-Fi connection), the **time zone** (for the rule's time window) and the panel **language**.
@@ -504,7 +504,7 @@ Tests run on the computer, with the core simulated; every release also runs on a
 
 The pipeline runs `plan → check → build → test → release`; if one job fails, the next ones do not run. Without new firmware (docs, workflow, tools), `build`, `test` and `release` are skipped. To force a release, use *Run workflow* with `release: true`.
 
-The **web installer** has a workflow of its own (`.github/workflows/pages.yml`): a change to `install/` or `tools/web_installer.py` on `main`, or *Run workflow*, publishes it to [GitHub Pages](https://allanbarcelos.github.io/esp8266-dns/) in seconds, with no firmware build. It always flashes the latest published release: after each CI run on `main` it checks the site's `manifest.json` and deploys again when a newer release is out, so nothing has to be run by hand.
+The **web installer** has a workflow of its own (`.github/workflows/pages.yml`): a change to `install/` or `tools/web_installer.py` on `main`, or *Run workflow*, publishes it to [GitHub Pages](https://allanbarcelos.github.io/esp8266-iot/) in seconds, with no firmware build. It always flashes the latest published release: after each CI run on `main` it checks the site's `manifest.json` and deploys again when a newer release is out, so nothing has to be run by hand.
 
 The **install counter** has a workflow of its own (`.github/workflows/counter.yml`): on a change to `counter/` (or the installer page) it runs the Worker's tests (100 % coverage) and deploys `counter/worker.mjs` to workers.dev through the Cloudflare API, creating its KV namespace on the first run. It needs the `CLOUDFLARE_API_TOKEN` (Account → Workers Scripts → Edit, Account → Workers KV Storage → Edit) and `CLOUDFLARE_ACCOUNT_ID` secrets. The installer page sends one beacon when a flash finishes; the Worker counts it at most once per address per day and keeps neither the address nor anything about the device (only a salted hash, for a day). The badge at the top reads the total.
 

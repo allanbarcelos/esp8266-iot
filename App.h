@@ -56,7 +56,7 @@ public:
     void begin() {
         logger.setClock(&clock);
         Serial.begin(115200);
-        Serial.printf("\n=== ESP8266 DNS Updater %s ===\n", firmware_version);
+        Serial.printf("\n=== ESP8266 IoT %s ===\n", firmware_version);
 
         configStore.begin();
         configStore.load();

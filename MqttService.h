@@ -441,9 +441,9 @@ private:
         // The panel rejects " and \ in the name: it goes unescaped
         if (_cfg.dev_name[0]) _out(_cfg.dev_name);
         else _outP(PSTR("ESP8266 IoT"));
-        _outP(PSTR("\",\"mf\":\"esp8266-dns\",\"sw\":\""));
+        _outP(PSTR("\",\"mf\":\"esp8266-iot\",\"sw\":\""));
         _out(firmware_version);
-        _outP(PSTR("\"},\"o\":{\"name\":\"esp8266-dns\"},\"stat_t\":\""));
+        _outP(PSTR("\"},\"o\":{\"name\":\"esp8266-iot\"},\"stat_t\":\""));
         _out(_base);
         _outP(PSTR("/state\",\"avty_t\":\""));
         _out(_base);

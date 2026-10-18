@@ -161,7 +161,7 @@ void test_starts_ota_with_the_build_file() {
     TEST_ASSERT_TRUE(f.ota.inProgress());
     TEST_ASSERT_EQUAL(1024, f.ota.contentLength());
     TEST_ASSERT_EQUAL(0, (int)f.ota.bytesWritten());
-    std::string url = "https://github.com/allanbarcelos/esp8266-dns/releases/download/v999/";
+    std::string url = "https://github.com/allanbarcelos/esp8266-iot/releases/download/v999/";
     url += OTAService::assetName(OTAService::signingEnabled());
     TEST_ASSERT_EQUAL_STRING(url.c_str(), MockHTTP::calledURLs[1].c_str());
     TEST_ASSERT_EQUAL(1024, (int)Update._size);
@@ -745,7 +745,7 @@ void test_github_uses_large_tls_buffer() {
     TEST_ASSERT_EQUAL(16384, MockTLS::bufIn);
     TEST_ASSERT_EQUAL(512, MockTLS::bufOut);
     TEST_ASSERT_TRUE(MockHTTP::lastHTTP10);
-    TEST_ASSERT_EQUAL_STRING("ESP8266-dns", MockHTTP::lastUA.c_str());
+    TEST_ASSERT_EQUAL_STRING("ESP8266-iot", MockHTTP::lastUA.c_str());
 }
 
 void test_retries_after_backoff() {

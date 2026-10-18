@@ -310,7 +310,7 @@ export class Device {
   async release(ws, asked = false) {
     let tag = '';
     try {
-      const r = await fetch(RELEASES, { headers: { 'User-Agent': 'esp8266-dns-relay', Accept: 'application/vnd.github+json' } });
+      const r = await fetch(RELEASES, { headers: { 'User-Agent': 'esp8266-iot-relay', Accept: 'application/vnd.github+json' } });
       tag = r.ok ? (await r.json()).tag_name : '';
     } catch {
       // GitHub unreachable or limited

@@ -195,7 +195,7 @@ jobs:
           python3 tools/firmware_limit.py build/firmware.raw.bin | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Check that signature verification was embedded
-        run: grep -q "updaterSigningVerifier" build/esp8266-dns.ino.map
+        run: grep -q "updaterSigningVerifier" build/esp8266-iot.ino.map
 
       # Throwaway key: only to measure the real size of firmware.signed.bin
       # (gzip + 256 B signature) on every push/PR, without the release secret.
@@ -209,7 +209,7 @@ jobs:
       - name: Package and validate OTA (real size, signed and unsigned)
         run: |
           python3 .github/scripts/package_ota.py build/firmware.raw.bin dist \
-            --map build/esp8266-dns.ino.map \
+            --map build/esp8266-iot.ino.map \
             --key "$RUNNER_TEMP/test.key" --pubkey "$RUNNER_TEMP/test.pub" \
             --tag "${{ needs.plan.outputs.version }}"
 

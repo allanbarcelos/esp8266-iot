@@ -693,7 +693,7 @@ private:
         _client.print(path);
         _client.print(" HTTP/1.0\r\nHost: ");
         _client.print(host);
-        _client.print("\r\nUser-Agent: ESP8266-dns\r\nConnection: close\r\n");
+        _client.print("\r\nUser-Agent: ESP8266-iot\r\nConnection: close\r\n");
         if (extraHeader) {
             _client.print(extraHeader);
             _client.print("\r\n");
@@ -723,7 +723,7 @@ private:
         // Fixed host and path; only the tag (≤15) and the asset vary, and they fit
         strlcpy(_host, "github.com", sizeof(_host));
         snprintf_P(_path, OTA_PATH_CAP,
-                   PSTR("/allanbarcelos/esp8266-dns/releases/download/%s/%s"),
+                   PSTR("/allanbarcelos/esp8266-iot/releases/download/%s/%s"),
                    version, assetName(signingEnabled()));
         _log.log(PSTR("Firmware URL: https://%s%s"), _host, _path);
         _hop = 0;

@@ -762,7 +762,7 @@ private:
     // Device name in the title and at the top; without one, the project's
     void _name() {
         if (_cfg.dev_name[0]) _e(_cfg.dev_name);
-        else _p(H("ESP8266 DNS"));
+        else _p(H("ESP8266 IoT"));
     }
 
     // Footer and the translation; then the page's own scripts, if any
@@ -1070,7 +1070,7 @@ private:
         _box(H(L_GENERAL));
         _form(P_CONFIG_SAVE);
         _input(H(L_NAME " <span class='m'>" L_NAME_HINT "</span>"), S_F_NAME,
-               _cfg.dev_name, H("maxlength='31' placeholder='ESP8266 DNS'"));
+               _cfg.dev_name, H("maxlength='31' placeholder='ESP8266 IoT'"));
         _input(H("Hostname <span class='m'>" L_HOSTNAME_HINT "</span>"),
                H("hostname"), _cfg.hostname,
                H("maxlength='32' pattern='[A-Za-z0-9]([A-Za-z0-9\\-]*[A-Za-z0-9])?'"));

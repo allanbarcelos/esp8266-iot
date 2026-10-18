@@ -77,7 +77,7 @@ Every release of this round ran on a real ESP-01, HTTP/1.0 to the Cloudflare API
 
 ### Name
 
-- The project is **esp8266-iot**. The repository is renamed from `esp8266-dns`. See "Before renaming the repository" below.
+- The project is **esp8266-iot**. The repository was renamed from `esp8266-dns` (see "Repository rename" below).
 
 ## How it was verified
 
@@ -97,28 +97,35 @@ Every release of this round ran on a real ESP-01, HTTP/1.0 to the Cloudflare API
 - **HTTP/1.0 for the device's own requests.** No chunked encoding to decode, as the OTA and the ntfy stream already did.
 - **MQTT without TLS.** The only TLS session that fits is already shared by DNS, ntfy and OTA.
 
-## Before renaming the repository
+## Repository rename (esp8266-dns → esp8266-iot)
 
-The firmware asks `api.github.com/repos/allanbarcelos/esp8266-dns/releases/latest` for the latest version and accepts only HTTP 200. After a rename, GitHub answers that address with a **301**. Every device with today's firmware would show "GitHub HTTP 301" and **stop updating**. The download itself already follows redirects. The web installer's address (`allanbarcelos.github.io/esp8266-dns`) does not redirect either.
+Done in two phases, so no device stopped updating. GitHub answers the old
+name with a 301, and the version check takes only HTTP 200.
 
-Safe order:
+1. The version check (firmware and relay Worker) asks by the repository's
+   number, `/repositories/1082797601/releases/latest`, which survives any
+   rename; released, and every device took it.
+2. The old name went from the download path, the User-Agent, the MQTT
+   discovery (`mf`, `o.name`), the sketch (`esp8266-iot.ino`), the panel's
+   default name and footer link, the installer and README links and the
+   tests. The compile action builds through a link named after the sketch,
+   so the checkout's folder name does not matter to arduino-cli.
 
-1. Release a firmware that asks for the version by the repository's number (`/repositories/1082797601/releases/latest`). That address survives any rename. **Done** (firmware and relay Worker); the download keeps the github.com path by name, which redirects.
-2. Wait for the devices to take that update.
-3. Rename the repository, and update the old name where it is left: `OTAService.h`, the MQTT discovery (`mf` and `o.name`), the sketch name `esp8266-dns.ino` (CI copies `build/esp8266-dns.ino.bin` and reads its `.map`), the matching tests, and the installer links in the README, [HARDWARE-TEST.md](HARDWARE-TEST.md) and `install/index.html`.
+The web installer moved to `allanbarcelos.github.io/esp8266-iot/`; the old
+address does not redirect (GitHub Pages). Never create a repository named
+`esp8266-dns` again: it would end GitHub's redirects from the old name.
 
 ## Next steps
 
 In order, with an effort estimate. Items that change the firmware need room first: 48 bytes are left. The PZEM-004T energy meter (about 1 KB with its Home Assistant entities) waits for room.
 
 1. **Make room.** The long help texts of the Cloudflare, remote access and ntfy pages (four languages each) and the Worker's own size are the first candidates. Half a day.
-2. **Version check that survives the rename** (see above), then the rename itself. Half a day; about the same flash.
-3. **Act on the loop measurements.** Status now shows the slowest loop and how many passed 200 ms, and the log names the service of each new worst. With field numbers, decide what to shorten (the TLS handshakes are the expected culprits). Half a day.
-4. **Stable release channel.** Automatic OTA installs only versions marked as stable; the others stay as beta, for whoever wants them. About 1 day; ~0.2 KB.
-5. **End-to-end test in CI.** Bring the Mosquitto and Home Assistant test, manual today, into CI. About 1 day; does not change the firmware.
-6. **Field diagnostics.** Keep the last crash (address and stack) and show it on the panel; publish heap, Wi-Fi signal and uptime over MQTT. About 1 day; the size depends on how much goes in.
-7. **Battery in the API and MQTT**, and the INA219 ([BATTERY-AND-SOLAR.md](BATTERY-AND-SOLAR.md)). Small.
-8. **Validate GitHub's certificate on OTA.** Today the signature protects the image, but someone in the middle of the connection can block updates. Half a day; ~1.5 KB.
-9. **Smaller pieces:** a physical button, a backup second Wi-Fi, a remote log through ntfy ([PORTING-FROM-TASMOTA.md](PORTING-FROM-TASMOTA.md)).
+2. **Act on the loop measurements.** Status now shows the slowest loop and how many passed 200 ms, and the log names the service of each new worst. With field numbers, decide what to shorten (the TLS handshakes are the expected culprits). Half a day.
+3. **Stable release channel.** Automatic OTA installs only versions marked as stable; the others stay as beta, for whoever wants them. About 1 day; ~0.2 KB.
+4. **End-to-end test in CI.** Bring the Mosquitto and Home Assistant test, manual today, into CI. About 1 day; does not change the firmware.
+5. **Field diagnostics.** Keep the last crash (address and stack) and show it on the panel; publish heap, Wi-Fi signal and uptime over MQTT. About 1 day; the size depends on how much goes in.
+6. **Battery in the API and MQTT**, and the INA219 ([BATTERY-AND-SOLAR.md](BATTERY-AND-SOLAR.md)). Small.
+7. **Validate GitHub's certificate on OTA.** Today the signature protects the image, but someone in the middle of the connection can block updates. Half a day; ~1.5 KB.
+8. **Smaller pieces:** a physical button, a backup second Wi-Fi, a remote log through ntfy ([PORTING-FROM-TASMOTA.md](PORTING-FROM-TASMOTA.md)).
 
 Battery and solar panel, with or without a charge reading: [BATTERY-AND-SOLAR.md](BATTERY-AND-SOLAR.md). Powering it does not change the firmware. The charge reading competes with the button for the two free pins.

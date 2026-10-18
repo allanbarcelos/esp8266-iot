@@ -495,8 +495,8 @@ private:
         if (_tx.find("Connection: close") != std::string::npos) _record(end, host, path);
         MockHTTP::lastRaw = _tx;
         MockHTTP::lastHTTP10 = _tx.find("HTTP/1.0") != std::string::npos;
-        if (_tx.find("User-Agent: ESP8266-dns") != std::string::npos)
-            MockHTTP::lastUA = "ESP8266-dns";
+        if (_tx.find("User-Agent: ESP8266-iot") != std::string::npos)
+            MockHTTP::lastUA = "ESP8266-iot";
 
         if (!MockHTTP::rawHttp.empty() &&
             (MockHTTP::rawAny || path.find("/releases/latest") == std::string::npos)) {

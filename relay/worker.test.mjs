@@ -569,7 +569,7 @@ test('the latest release goes down once an hour', async () => {
     return answer();
   });
   await device.alarm();
-  assert.equal(calls[0][1].headers['User-Agent'], 'esp8266-dns-relay');
+  assert.equal(calls[0][1].headers['User-Agent'], 'esp8266-iot-relay');
   assert.equal(ws.sent.at(-1)[0], 86);
   assert.equal(dec.decode(ws.sent.at(-1).subarray(1)), 'v158');
   assert.equal(ctx.store.get('release'), 1_700_003_600_000);
