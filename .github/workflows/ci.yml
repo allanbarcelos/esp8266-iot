@@ -51,7 +51,7 @@ jobs:
           # Everything that changes the binary or the published package: sketch,
           # panel CSS/JS, key, linker, core/library versions, compile options
           # and OTA packaging
-          FIRMWARE_PATHS: '^([^/]+\.(ino|h)|web/|relay/worker\.mjs|public\.key|ld/|tools/(ota_flash_ld|embed_web|embed_relay|i18n_cm)\.py|\.github/(actions/(setup-arduino|compile)/|scripts/package_ota\.py))'
+          FIRMWARE_PATHS: '^([^/]+\.(ino|h)|web/|relay/worker\.mjs|public\.key|ld/|tools/(ota_flash_ld|embed_web|embed_relay|i18n_cm|html_pairs)\.py|\.github/(actions/(setup-arduino|compile)/|scripts/package_ota\.py))'
           # Tests only: runs test, without build or release
           TEST_PATHS: '^(test/|platformio\.ini|requirements\.txt)'
           # Web installer: the page and the site generator
@@ -206,6 +206,9 @@ jobs:
 
       - name: Embedded CSS and JS (WebAssets.h matches web/)
         run: python3 tools/embed_web.py --check
+
+      - name: Panel HTML pairs (HtmlPairs.h matches the H() texts, which are ASCII)
+        run: python3 tools/html_pairs.py --check
 
       - name: Embedded TLS roots (CloudflareCA.h matches ca/roots.pem)
         run: python3 tools/embed_ca.py --check

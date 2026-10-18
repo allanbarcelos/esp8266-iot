@@ -963,7 +963,7 @@ void test_panel_language() {
     f.get("/config");
     TEST_ASSERT_TRUE(contains(f.out(), "<select name='lang'><option value='' selected>Browser language</option>"
                                        "<option value='en'>English</option>"));
-    TEST_ASSERT_TRUE(contains(f.out(), "<option value='fr'>Français</option></select>"));
+    TEST_ASSERT_TRUE(contains(f.out(), "<option value='fr'>Fran&ccedil;ais</option></select>"));
     TEST_ASSERT_TRUE(contains(f.out(), "#'></script></body></html>"));
     TEST_ASSERT_TRUE(contains(f.srv.raw, L_SETTINGS));
     TEST_ASSERT_FALSE(contains(f.srv.raw, "Settings"));
@@ -974,7 +974,7 @@ void test_panel_language() {
     TEST_ASSERT_EQUAL_STRING("pt", cfg.lang);
     f.get("/config");
     TEST_ASSERT_TRUE(contains(f.out(), "<option value=''>Browser language</option>"));
-    TEST_ASSERT_TRUE(contains(f.out(), "<option value='pt' selected>Português</option>"));
+    TEST_ASSERT_TRUE(contains(f.out(), "<option value='pt' selected>Portugu&ecirc;s</option>"));
     TEST_ASSERT_TRUE(contains(f.out(), "<script src='/i18n.js?v=" WEB_I18N_TAG "#pt'></script>"));
 
     // Off the list: refused, nothing changes
