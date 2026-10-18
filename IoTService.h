@@ -10,6 +10,7 @@
 #include "IoTCatalog.h"
 #include "IoTCommand.h"
 #include "IoTState.h"
+#include "PowerService.h"
 #include "I2cBus.h"
 #include "Ws2812.h"
 
@@ -276,13 +277,22 @@ public:
         return _actLine;
     }
 
-    // State as JSON (API and panel). A missing part goes as null.
+    // The battery gauge, for the state (App)
+    void setPower(const PowerService* power) { _power = power; }
+
+    // State as JSON (API, MQTT and panel). A missing part goes as null; the
+    // battery is its charge and state (PowerService::name), not the voltage,
+    // which changes on every reading and would send the state each time
     size_t stateJson(char* out, size_t n) const {
         size_t k = (size_t)snprintf(out, n, "{\"api\":1,\"sensor\":");
         k += _sensorJson(out + k, _left(n, k));
         k += (size_t)snprintf(out + k, _left(n, k), ",\"actuator\":");
         k += _actuatorJson(out + k, _left(n, k));
-        k += (size_t)snprintf(out + k, _left(n, k), "}");
+        if (_power && _power->configured())
+            k += (size_t)snprintf_P(out + k, _left(n, k), PSTR(",\"battery\":{\"percent\":%u,\"state\":\"%s\"}}"),
+                                    (unsigned)_power->percent(), PowerService::name(_power->source()));
+        else
+            k += (size_t)snprintf_P(out + k, _left(n, k), PSTR(",\"battery\":null}"));
         return k;
     }
 
@@ -302,6 +312,7 @@ private:
     Config& _cfg;
     Logger& _log;
     const Clock* _clock;
+    const PowerService* _power = nullptr;
     IoTConfig _r;
     int8_t  _sensor;
     int8_t  _act;

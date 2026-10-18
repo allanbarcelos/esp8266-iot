@@ -242,7 +242,16 @@ void test_off_leaves_pins_alone() {
     TEST_ASSERT_EQUAL_STRING("none", iot.actuatorText());
     TEST_ASSERT_EQUAL(255, mock::pinModeV[2]);
     TEST_ASSERT_EQUAL(IoTService::NO_ACTUATOR, iot.command("on", 0));
-    TEST_ASSERT_EQUAL_STRING("{\"api\":1,\"sensor\":null,\"actuator\":null}", stateOf(iot).c_str());
+    TEST_ASSERT_EQUAL_STRING("{\"api\":1,\"sensor\":null,\"actuator\":null,\"battery\":null}", stateOf(iot).c_str());
+    // With the battery gauge set up: its charge and state (no reading yet)
+    Config withGauge;
+    withGauge.bat_sda = 3;
+    PowerService power(withGauge, logger);
+    iot.setPower(&power);
+    TEST_ASSERT_TRUE(contains(stateOf(iot), ",\"battery\":{\"percent\":0,\"state\":\"gauge not answering\"}}"));
+    PowerService none(cfg, logger);
+    iot.setPower(&none);
+    TEST_ASSERT_TRUE(contains(stateOf(iot), ",\"battery\":null}"));
     TEST_ASSERT_FALSE(iot.pending());
 
     // Type without a pin, or pin without a type: nothing
@@ -325,7 +334,7 @@ void test_sensor_only_publishes_with_type_names() {
     TEST_ASSERT_TRUE(logHas(logger, "IoT: open"));
     TEST_ASSERT_EQUAL_STRING(
         "{\"api\":1,\"sensor\":{\"type\":\"contact\",\"status\":\"ok\",\"text\":\"open\","
-        "\"active\":true},\"actuator\":null}", stateOf(iot).c_str());
+        "\"active\":true},\"actuator\":null,\"battery\":null}", stateOf(iot).c_str());
     iot.ack();
     TEST_ASSERT_FALSE(iot.pending());
 
@@ -373,7 +382,7 @@ void test_on_off_obeys_commands() {
     TEST_ASSERT_EQUAL_STRING(L_A_RELAY, iot.actuatorDef()->label);   // panel text: I18n.h marker
     TEST_ASSERT_EQUAL_STRING(
         "{\"api\":1,\"sensor\":null,\"actuator\":{\"type\":\"relay\",\"capability\":\"onoff\","
-        "\"on\":false,\"mode\":\"manual\",\"text\":\"off\"}}", stateOf(iot).c_str());
+        "\"on\":false,\"mode\":\"manual\",\"text\":\"off\"},\"battery\":null}", stateOf(iot).c_str());
 
     TEST_ASSERT_EQUAL(IoTService::OK, iot.command("on", 10));
     TEST_ASSERT_TRUE(iot.actuatorOn());

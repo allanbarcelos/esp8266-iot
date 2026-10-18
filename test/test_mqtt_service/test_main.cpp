@@ -526,7 +526,7 @@ void test_pause_wifi_and_reconnection() {
 // ── Home Assistant discovery ─────────────────────────────────────────────────
 
 static const char* DISCOVERY_TOPIC = "homeassistant/device/esp8266iot_00dead/config";
-static const char* KEYS = "thdnxbslcg";
+static const char* KEYS = "thdnxBbslcg";
 
 // Last published discovery, already parsed
 static bool discovery(const std::string& out, DynamicJsonDocument& doc, size_t nth = 0) {
@@ -542,7 +542,7 @@ static bool discovery(const std::string& out, DynamicJsonDocument& doc, size_t n
 static std::string active(DynamicJsonDocument& doc) {
     std::string s;
     JsonObject cmps = doc["cmps"];
-    TEST_ASSERT_EQUAL(14, (int)cmps.size());   // KEYS and the 4 diagnostics
+    TEST_ASSERT_EQUAL(15, (int)cmps.size());   // KEYS and the 4 diagnostics
     for (const char* k = KEYS; *k; k++) {
         char key[2] = {*k, 0};
         JsonObject e = cmps[key];
@@ -650,6 +650,24 @@ void test_discovery_by_module_type() {
         TEST_ASSERT_TRUE(discovery(f.net.out, doc));
         TEST_ASSERT_EQUAL_STRING(c.active, active(doc).c_str());
     }
+}
+
+// With the battery gauge set up, its charge from the state
+void test_discovery_battery() {
+    Fix f;
+    configure("", "");
+    cfg.bat_sda = 3;
+    f.iot.begin();
+    f.up();
+    DynamicJsonDocument doc(4096);
+    TEST_ASSERT_TRUE(discovery(f.net.out, doc));
+    TEST_ASSERT_EQUAL_STRING("B", active(doc).c_str());
+    JsonObject b = doc["cmps"]["B"];
+    TEST_ASSERT_EQUAL_STRING("sensor", b["p"]);
+    TEST_ASSERT_EQUAL_STRING("battery", b["dev_cla"]);
+    TEST_ASSERT_EQUAL_STRING("%", b["unit_of_meas"]);
+    TEST_ASSERT_EQUAL_STRING("{{value_json.battery.percent|default(none)}}", b["val_tpl"]);
+    cfg.bat_sda = -1;
 }
 
 void test_discovery_entity_details() {
@@ -776,6 +794,7 @@ int main() {
     RUN_TEST(test_pause_wifi_and_reconnection);
     RUN_TEST(test_discovery_device_and_topics);
     RUN_TEST(test_discovery_by_module_type);
+    RUN_TEST(test_discovery_battery);
     RUN_TEST(test_discovery_entity_details);
     RUN_TEST(test_discovery_republishes_when_module_changes);
     return UNITY_END();

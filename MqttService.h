@@ -355,6 +355,7 @@ private:
             case 'd': return k == iot::K_RANGE;
             case 'n': return k == iot::K_PULSE;
             case 'x': return k == iot::K_LUX;
+            case 'B': return _cfg.bat_sda >= 0;   // the battery gauge
             case 'b': return k == iot::K_DIGITAL;
             case 's': return c == iot::C_ONOFF;
             case 'l': return c == iot::C_LEVEL;
@@ -414,6 +415,7 @@ private:
             {'d', P_SENSOR, PSTR(",\"dev_cla\":\"distance\",\"unit_of_meas\":\"cm")},
             {'n', P_SENSOR, PSTR(",\"name\":\"Pulses")},
             {'x', P_SENSOR, PSTR(",\"dev_cla\":\"illuminance\",\"unit_of_meas\":\"lx")},
+            {'B', P_SENSOR, PSTR(",\"dev_cla\":\"battery\",\"unit_of_meas\":\"%")},
             {'b', P_BINARY, PSTR(",\"name\":\"Sensor\","
                                  "\"val_tpl\":\"{{'ON' if value_json.sensor.active|default(0) else 'OFF'}}\"")},
             {'s', P_SWITCH, PSTR(",\"name\":null,\"pl_on\":\"on\",\"pl_off\":\"off\","
@@ -463,9 +465,10 @@ private:
                 if (e.platform == P_LIGHT) _outP(STATE_ON);
                 _outP(e.body);
                 if (e.platform == P_SENSOR) {
-                    _outP(PSTR("\",\"stat_cla\":\"measurement\",\"val_tpl\":\"{{value_json.sensor."));
-                    _outP(e.key == 't' ? PSTR("temperature") : e.key == 'h' ? PSTR("humidity")
-                          : e.key == 'd' ? PSTR("distance") : e.key == 'n' ? PSTR("pulses") : PSTR("lux"));
+                    _outP(PSTR("\",\"stat_cla\":\"measurement\",\"val_tpl\":\"{{value_json."));
+                    _outP(e.key == 't' ? PSTR("sensor.temperature") : e.key == 'h' ? PSTR("sensor.humidity")
+                          : e.key == 'd' ? PSTR("sensor.distance") : e.key == 'n' ? PSTR("sensor.pulses")
+                          : e.key == 'B' ? PSTR("battery.percent") : PSTR("sensor.lux"));
                     _outP(PSTR("|default(none)}}\""));
                 }
             }

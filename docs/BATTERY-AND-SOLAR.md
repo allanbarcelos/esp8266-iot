@@ -27,4 +27,4 @@ The best pair for this bus is TX and RX: they are not boot pins. GPIO0 and GPIO2
 
 This setup uses the two pins left over. The stop button planned in [PORTING-FROM-TASMOTA.md](PORTING-FROM-TASMOTA.md) does not fit alongside, unless the sensor becomes an SHT31. Then the battery gauge shares the sensor's I2C bus, the actuator keeps its pin and the fourth pin is free for the button again.
 
-The firmware reads the MAX17048 (charge, voltage and charge rate) every 10 s and shows at the top of the panel whether the device is on supply, on battery (with the charge) or charging, with the details under **Status**. The charge does not go to the API or MQTT yet, and the INA219 is not read.
+The firmware reads the MAX17048 (charge, voltage and charge rate) every 10 s and shows at the top of the panel whether the device is on supply, on battery (with the charge) or charging, with the details under **Status**. The charge and state go in the state of the API and MQTT (`battery`), and Home Assistant shows the charge as a battery sensor. The INA219 is not read yet: it waits for room in the firmware.

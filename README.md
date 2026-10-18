@@ -188,11 +188,12 @@ curl -H 'Authorization: Bearer <token>' -d 'cmd=pulse 5' http://192.168.1.50/api
 ```json
 {"api":1,
  "sensor":{"type":"dht22","status":"ok","text":"24.5 C, 61.0%","temperature":24.5,"humidity":61.0},
- "actuator":{"type":"fan","capability":"level","on":true,"mode":"auto","text":"on 60%","level":60}}
+ "actuator":{"type":"fan","capability":"level","on":true,"mode":"auto","text":"on 60%","level":60},
+ "battery":{"percent":76,"state":"on battery"}}
 ```
 
 - The token (32 hex characters from the hardware RNG) is separate from the panel password. It is created when IoT is first configured and shown on the IoT page with these examples; **Generate new token** invalidates the old one. It is compared in constant time.
-- `sensor` or `actuator` is `null` when not in use. `status` is `ok`, `waiting` or `error`. Extra fields per type: `active`, `temperature`, `humidity`, `distance`, `pulses`, `level`, `angle`, `color`, `pulse` (seconds left).
+- `sensor`, `actuator` or `battery` is `null` when not in use. `battery` (with the [gauge](#-power-and-battery)) is the charge and `on supply`, `on battery`, `charging` or `gauge not answering`. `status` is `ok`, `waiting` or `error`. Extra fields per type: `active`, `temperature`, `humidity`, `distance`, `pulses`, `level`, `angle`, `color`, `pulse` (seconds left).
 - A command that does not parse or does not fit the actuator returns **400** with `{"error":"..."}`; nothing changes.
 - In Home Assistant, prefer [MQTT](#-mqtt): the device shows up on its own. Without a broker, HA reads it with the `rest` sensor and sends commands with `rest_command`.
 
@@ -237,7 +238,7 @@ The top-right corner of the panel shows:
 | ☀ Charging 76% | the charge is rising (solar panel or supply) |
 | 🔋 Battery ? | the gauge did not answer |
 
-The gauge is read every 10 s. The state, charge, voltage and rate (%/h) show under **Status**, and each change of state goes to the log.
+The gauge is read every 10 s. The state, charge, voltage and rate (%/h) show under **Status**, and each change of state goes to the log. The charge and state also go in the state of the API and MQTT (`battery`); Home Assistant shows the charge as a battery sensor of the device.
 
 ## 📡 MQTT
 

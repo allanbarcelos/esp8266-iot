@@ -77,6 +77,7 @@ public:
             web.setRelay(&relay);
             web.setNet(&net);
             web.begin();
+            iot.setPower(&power);
             iot.begin();
             power.begin();
         }
