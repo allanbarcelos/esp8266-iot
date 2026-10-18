@@ -193,12 +193,26 @@ function QR(s) {
     // Values in the rows (states and statuses from the device)
     document.querySelectorAll('.r b').forEach(function (b) { b.textContent = L(b.textContent); });
     // The log: each line starts with its Unix time, written as a date in the
-    // time zone of Settings (data-tz, minutes); "+N", seconds since that boot
-    var lg = document.getElementById('lg');
-    if (lg) lg.textContent = lg.textContent.replace(new RegExp('^(\\+?)(\\d+) ', 'gm'), function (m, b, t) {
-        var d = new Date((+t + lg.dataset.tz * 60) * 1000).toISOString();
-        return b ? 'boot+' + t + 's ' : d.slice(0, 10) + ' ' + d.slice(11, 19) + ' ';
-    });
+    // time zone of Settings (data-tz, minutes); "+N", seconds since that boot.
+    // The download (every file) the same way, saved from here.
+    var lg = document.getElementById('lg'), dl = document.getElementById('dl'), LD = function (s) {
+        return s.replace(new RegExp('^(\\+?)(\\d+) ', 'gm'), function (m, b, t) {
+            var d = new Date((+t + lg.dataset.tz * 60) * 1000).toISOString();
+            return b ? 'boot+' + t + 's ' : d.slice(0, 10) + ' ' + d.slice(11, 19) + ' ';
+        });
+    };
+    if (lg) {
+        lg.textContent = LD(lg.textContent);
+        dl.onclick = function (e) {
+            e.preventDefault();
+            fetch(dl.href).then(function (r) { return r.text(); }).then(function (s) {
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(new Blob([LD(s)], {type: 'text/plain'}));
+                a.download = 'log.txt';
+                a.click();
+            });
+        };
+    }
     document.documentElement.lang = IG[IL];
     de.classList.add('i');
 })();

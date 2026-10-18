@@ -160,8 +160,47 @@ void test_damaged_file() {
     TEST_ASSERT_EQUAL_STRING("no end", v[1].text.c_str());
 }
 
+static std::string fileLine(uint32_t t, const char* text) {
+    std::string s(reinterpret_cast<const char*>(&t), 4);
+    return s + text + "\n";
+}
+
+// A kept file whose newest line is more than a day old goes, even with
+// nothing to write (tick, every FLUSH_MS); /log.1 old means /log.2 too.
+// Without the clock, or with times from before it, nothing can be told.
+void test_kept_files_last_a_day() {
+    MockFS::put("/log.2", fileLine(E - Logger::KEEP_S - 50, "two"));
+    MockFS::put("/log.1", fileLine(E - Logger::KEEP_S - 60, "one a") + fileLine(E - 100, "one b"));
+    MockFS::put("/log.0", fileLine(E - Logger::KEEP_S - 70, "current"));
+    lgr.tick(Logger::FLUSH_MS);                     // no clock
+    TEST_ASSERT_TRUE(LittleFS.exists("/log.2"));
+    lgr.setClock(&testClock);
+    lgr.tick(2 * Logger::FLUSH_MS);                 // clock not set
+    TEST_ASSERT_TRUE(LittleFS.exists("/log.2"));
+    clockNow = E;
+    lgr.tick(3 * Logger::FLUSH_MS - 1);             // not yet
+    TEST_ASSERT_TRUE(LittleFS.exists("/log.2"));
+    lgr.tick(3 * Logger::FLUSH_MS);
+    TEST_ASSERT_FALSE(LittleFS.exists("/log.2"));   // its newest line is old
+    TEST_ASSERT_TRUE(LittleFS.exists("/log.1"));    // one of its lines is not
+    TEST_ASSERT_TRUE(LittleFS.exists("/log.0"));    // the current one stays
+
+    MockFS::put("/log.2", fileLine(5, "before the clock"));
+    MockFS::put("/log.1", fileLine(E - Logger::KEEP_S - 1, "old"));
+    lgr.flush(4 * Logger::FLUSH_MS);
+    TEST_ASSERT_FALSE(LittleFS.exists("/log.1"));
+    TEST_ASSERT_FALSE(LittleFS.exists("/log.2"));
+    MockFS::put("/log.2", fileLine(5, "before the clock"));
+    lgr.flush(5 * Logger::FLUSH_MS);
+    TEST_ASSERT_TRUE(LittleFS.exists("/log.2"));
+    MockFS::put("/log.1", fileLine(E - Logger::KEEP_S, "a day exactly"));
+    lgr.flush(6 * Logger::FLUSH_MS);
+    TEST_ASSERT_TRUE(LittleFS.exists("/log.1"));
+}
+
 int main() {
     UNITY_BEGIN();
+    RUN_TEST(test_kept_files_last_a_day);
     RUN_TEST(test_line_waits_then_goes_to_the_file);
     RUN_TEST(test_half_full_is_written_and_packed);
     RUN_TEST(test_clock_gives_unix_time);

@@ -175,217 +175,218 @@
 #define L_LOW_RELAY           "`2f"   // Low (common relay modules)
 #define L_LOW                 "`2g"   // Low
 #define L_V_LOW               "`2h"   // low
-#define L_RESTORE_LAST        "`2i"   // On power-up, go back to the last command
-#define L_BACK_AUTO           "`2j"   // Back to automatic
-#define L_BACK                "`2k"   // Back
-#define L_VOLTAGE             "`2l"   // Voltage
-#define L_CURRENT_VERSION     "`2m"   // Current version
-#define L_MFA_REPLACE_HELP    "`2n"   // Current password and code. The panel then shows a new key.
-#define L_SET_PASSWORD        "`2o"   // Set a password to unlock the panel
-#define L_PASS_LENGTH         "`2p"   // The password must have 8 to 64 characters
-#define L_WIFI_PASS_LENGTH    "`2q"   // The Wi-Fi password must have 8 to 63 characters
-#define L_SAME_TOPIC          "`2r"   // The command topic must be different
-#define L_COMMAND_TOPIC       "`2s"   // Command topic
-#define L_INVALID_CMD_TOPIC   "`2t"   // Invalid command topic (use letters, digits, _ or -)
-#define L_INVALID_TOPIC       "`2u"   // Invalid topic (use letters, digits, _ or -)
-#define L_INVALID_CF_TOKEN    "`2v"   // Invalid token (letters, digits, _ or -)
-#define L_INVALID_HOSTNAME    "`2w"   // Invalid hostname (letters, digits and hyphen)
-#define L_INVALID_NAMES       "`2x"   // Invalid addresses (letters, digits, dots, hyphens and commas)
-#define L_INVALID_RECORD_NAME "`2y"   // Invalid name: letters, digits, dots and dashes, inside the chosen domain
-#define L_INVALID_REMOTE_NAME "`2z"   // Invalid name: lowercase letters, digits and dashes, not at the ends
-#define L_INVALID_NAME        "`30"   // Invalid name (up to 31 characters, no quotes)
-#define L_NAME                "`31"   // Name
-#define L_RECORD_NAME         "`32"   // Name kept at your IP
-#define L_RECORD_HELP         "`33"   // A name in the domain, like home.example.com or just home: created if missing and kept on your public IP.
-#define L_PUBLIC_IP           "`34"   // Public IP
-#define L_LOCAL_IP            "`35"   // Local IP
-#define L_LOCAL_API           "`36"   // Local API
-#define L_J_RULE_WINDOW       "`37"   // Only between {0} and {1} (local time); off outside it.
-#define L_WINDOW_HELP         "`38"   // Outside it, automatic mode keeps the actuator off; a manual command holds until auto. Time zone: Settings.
-#define L_AUTO_OUTSIDE        "`39"   // automatic, outside the window
-#define L_WINDOW_SAME         "`3A"   // The window needs different start and end times
-#define L_RESET               "`3B"   // Reset
-#define L_WIFI_SET            "`3C"   // Wi-Fi set! Restarting...
-#define L_SETUP_MODE          "`3D"   // Setup mode - connect to Wi-Fi
-#define L_CONNECT             "`3E"   // Connect
-#define L_V_CONNECTED         "`3F"   // connected
-#define L_V_CONNECTING        "`3G"   // connecting
-#define L_CONNECTION          "`3H"   // Connection
-#define L_HOSTNAME_HINT       "`3I"   // (router; applies on the next connection)
-#define L_SIGN_IN             "`3J"   // Sign in
-#define L_SIGN_OUT            "`3K"   // Sign out
-#define L_S_GAS               "`3L"   // Gas or smoke (MQ, D0 output)
-#define L_V_GAS               "`3M"   // gas
-#define L_LARGEST_BLOCK       "`3N"   // Largest block
-#define L_SLOW_LOOPS          "`3O"   // Loops over 200 ms
-#define L_SLOWEST_LOOP        "`3P"   // Slowest loop
-#define L_STACK_FREE          "`3Q"   // Lowest free stack
-#define L_FREE                "`3R"   // Free
-#define L_V_CLEAR             "`3S"   // clear
-#define L_FREE_HEAP           "`3T"   // Free heap
-#define L_RATE                "`3U"   // Rate
-#define L_STATE               "`3V"   // State
-#define L_STATUS              "`3W"   // Status
-#define L_USED                "`3X"   // Used
-#define L_RULE_VALUE          "`3Y"   // Value used by the rule
-#define L_RULE                "`3Z"   // Rule
-#define L_OTA_RESERVE         "`3a"   // OTA reserve
-#define L_NETWORK             "`3b"   // Network
-#define L_NET_TURN            "`3c"   // Network turn
-#define L_API_TOKEN           "`3d"   // API Token
-#define L_TOKEN               "`3e"   // Token
-#define L_INVALID_NTFY_TOKEN  "`3f"   // Invalid ntfy token
-#define L_NTFY_TOKEN          "`3g"   // ntfy access token
-#define L_REMOTE              "`3h"   // Remote access
-#define L_WORKER              "`3i"   // Worker - remote access
-#define L_REMOTE_OFF_DONE     "`3j"   // Remote access off
-#define L_POLL                "`3k"   // Commands through remote access: check every
-#define L_NTFY_COMMANDS       "`3l"   // Commands over ntfy
-#define L_NTFY_HOST           "`3m"   // ntfy server
-#define L_NTFY_HOST_HELP      "`3n"   // Blank: ntfy.sh. Your own server: its name only, on HTTPS with a Let's Encrypt or Google certificate.
-#define L_KEEP_BLANK          "`3o"   // (leave blank to keep)
-#define L_BLANK_KEEPS         "`3p"   // (blank keeps it)
-#define L_OPTIONAL_KEEPS      "`3q"   // (optional; blank keeps it)
-#define L_REMOTE_HELP         "`3r"   // The panel and the API at an HTTPS address of yours, from anywhere, through a Cloudflare Worker this device sets up. No router port to open; the panel keeps its password and authenticator.
-#define L_CF_CLEAR_ASK        "`3s"   // Remove the token and every Cloudflare setting from this device? The Worker and the DNS record stay in your account.
-#define L_CF_CLEARED          "`3t"   // Cloudflare token and settings removed
-#define L_CF_NEEDS_TOKEN      "`3u"   // Register the Cloudflare API token in Settings first.
-#define L_UNKNOWN_ZONE        "`3v"   // Pick a domain from the list (missing: save the token again)
-#define L_DOMAIN              "`3w"   // Domain
-#define L_CF_ZONES            "`3x"   // Domains this token reaches:
-#define L_TOKEN_SET           "`3y"   // Token set:
-#define L_TOKEN_NOT_SET       "`3z"   // Token not set
-#define L_TOPIC_NOT_SET       "`40"   // Topic not set - notifications off
-#define L_NTFY_TITLE          "`41"   // ntfy notifications
-#define L_MFA_HELP            "`42"   // Add this key to an authenticator app, then enter the code.
-#define L_SHORT_TOPIC_WARN    "`43"   // Short command topic and no token: anyone who guesses the name controls the device
-#define L_NTFY_TOPIC          "`44"   // ntfy topic
-#define L_SET_NTFY_TOPIC      "`45"   // Set the ntfy topic to send the reading
-#define L_TOPIC               "`46"   // Topic:
-#define L_TOPICS              "`47"   // Topics
-#define L_POLL_HELP           "`48"   // With remote access on, the Worker checks the command topic this often. Free plan: 100,000 requests a day; 2 s uses about 43,000, 5 s 17,000, 30 s 3,000.
-#define L_PANEL_ACCESS        "`49"   // Panel access
-#define L_NAME_HINT           "`4A"   // (panel and Home Assistant)
-#define L_G_TEMP_HUM          "`4B"   // Temperature and humidity
-#define L_S_DHT22             "`4C"   // Temperature and humidity (DHT22)
-#define L_S_DHT11             "`4D"   // Temperature and humidity (DHT11)
-#define L_S_SHT3X             "`4E"   // Temperature and humidity (SHT30/SHT31, I2C)
-#define L_S_AHT               "`4F"   // Temperature and humidity (AHT20/AHT21, I2C)
-#define L_HUMIDITY            "`4G"   // Humidity
-#define L_UNIT                "`4H"   // Unit
-#define L_S_LUX               "`4I"   // Light (BH1750, I2C)
-#define L_BRIGHTNESS          "`4J"   // Brightness
-#define L_G_POSITION          "`4K"   // Position
-#define L_FRAGMENTATION       "`4L"   // Fragmentation
-#define L_ON_SUPPLY           "`4M"   // On supply
-#define L_V_ON_SUPPLY         "`4N"   // on supply
-#define L_J_HINT_SERVO        "`4O"   // Servo on a separate 5 V supply with GND shared with the ESP.
-#define L_P_GND               "`4P"   // GND, common ground
-#define L_CAUSE               "`4Q"   // Cause
-#define L_V_PAUSED            "`4R"   // paused
-#define L_V_PRESSED           "`4S"   // pressed
-#define L_TYPE_DEFAULT        "`4T"   // type default
-#define L_TYPE                "`4U"   // Type
-#define L_WD_NAME             "`4V"   // workers.dev name for the account (only if it has none yet)
-#define L_REMOTE_NAME         "`4W"   // Name (the first part of the address, and the Worker's name)
-#define L_ADDRESS             "`4X"   // Address
-#define L_OTHER_NAMES         "`4Y"   // Other addresses
-#define L_J_HINT_SHT3X        "`4Z"   // I2C: SDA on this pin, SCL on its pair (GPIO0 with GPIO2, RX with TX); 4.7 kOhm pull-ups; address
-#define L_GAUGE_HINT          "`4a"   // (SDA; SCL goes on the pair: GPIO0 with GPIO2, RX with TX)
-#define L_J_HINT_DIGITAL      "`4b"   // Module with a digital output (D0); sensitivity is set on the trimpot.
-#define L_S_DIGITAL           "`4c"   // Digital (flame, soil, sound)
-#define L_V_RELEASED          "`4d"   // released
-#define L_A_RELAY             "`4e"   // Relay
-#define L_CLOCK_NOT_SYNC      "`4f"   // clock not synchronized
-#define L_MON                 "`4g"   // Mon
-#define L_LOGS                "`4h"   // Logs
-#define L_SYSTEM_LOG          "`4i"   // System log
-#define L_SYSTEM              "`4j"   // System
-#define L_J_HINT_WS2812       "`4k"   // WS2812 on 5 V: 330 Ohm resistor on the data line; up to 60 LEDs.
-#define L_J_HINT_RANGE        "`4l"   // HC-SR04: trig and echo together on one pin, with 1 kOhm on echo; up to 400 cm.
-#define L_PIN                 "`4m"   // Pin
-#define L_P_TITLE             "`4n"   // ESP-01 pins, top view, antenna on the left
-#define L_P_VIEW              "`4o"   // top view · antenna on the left
-#define L_P_ANTENNA           "`4p"   // antenna
-#define L_A_LED               "`4q"   // Dimmable LED
-#define L_AVAILABLE           "`4r"   // Available
-#define L_J_RULE_LINEAR       "`4s"   // Level proportional from {0} to {1} {2}.
-#define L_S_FLOAT             "`4t"   // Float switch (water level)
-#define L_S_LEAK              "`4u"   // Water leak
-#define L_V_MOTION            "`4v"   // motion
-#define L_S_PIR               "`4w"   // Motion (PIR)
-#define L_CF_RECORD_READY     "`4x"   // DDNS record ready:
-#define L_CF_CLEAR            "`4y"   // Unregister
-#define L_TUE                 "`4z"   // Tue
-#define L_TEMPERATURE         "`50"   // Temperature
-#define L_S_DS18              "`51"   // Temperature (DS18B20)
-#define L_J_HINT_DS18         "`52"   // DS18B20: 4.7 kOhm pull-up between data and 3.3 V.
-#define L_J_HINT_DHT11        "`53"   // DHT11/DHT22: 4.7 to 10 kOhm pull-up between data and 3.3 V; one reading every 2 s.
-#define L_P_3V3               "`54"   // 3.3 V
-#define L_P_VCC               "`55"   // VCC is 3.3 V
-#define L_P_CHPD              "`56"   // CH_PD stays at 3.3 V
-#define L_PINOUT_ALT          "`57"   // ESP-01 pins, top view: GPIO0, RX (GPIO3), GPIO2, GND; VCC 3.3 V, RST, CH_PD, TX (GPIO1)
-#define L_GAUGE_PINS_TAKEN    "`58"   // The gauge pins are taken by the sensor or the actuator
-#define L_OTHER_NAMES_HINT    "`59"   // (names of a tunnel or proxy, separated by commas)
-#define L_A_GATE              "`5A"   // Gate or garage door
-#define L_S_DOOR              "`5B"   // Door or window (reed)
-#define L_BROKER_HINT         "`5C"   // (host or host:port)
-#define L_INVALID_BROKER      "`5D"   // Invalid broker (use host or host:port)
-#define L_GATEWAY             "`5E"   // Gateway
-#define L_A_STRIP             "`5F"   // LED strip (WS2812)
-#define L_LED_COUNT           "`5G"   // Number of LEDs
-#define L_FROM                "`5H"   // From
-#define L_SUN                 "`5I"   // Sun
-#define L_MENU                "`5J"   // Menu
-#define L_POWER               "`5K"   // Power
-#define L_V_DRY               "`5L"   // dry
-#define L_VALUE_TOO_LONG      "`5M"   // Value too long
-#define L_COLOR               "`5N"   // Color
-#define L_OTA_PROGRESS        "`5O"   // OTA in progress:
-#define L_IN_10S              "`5P"   // in 10 s
-#define L_V_WAITING           "`5Q"   // waiting
-#define L_CF_WORKING          "`5R"   // Working with Cloudflare...
-#define L_CF_FAILED           "`5S"   // Cloudflare refused
-#define L_CF_TOKEN_HELP       "`5T"   // In Cloudflare, My Profile, API Tokens, with: Zone Read, DNS Edit, Workers Routes Edit, Account Settings Read, Workers Scripts Edit.
-#define L_API_HELP            "`5U"   // No internet, same network: GET /api/state and POST /api/cmd with the Authorization: Bearer header and the token.
-#define L_G_MOTION            "`5V"   // Presence, contact and alarms
-#define L_V_PRESENCE          "`5W"   // presence
-#define L_S_RADAR             "`5X"   // Presence radar (LD2410, RCWL-0516)
-#define L_CHIP_ID             "`5Y"   // Chip ID
-#define L_P_ORANGE            "`5Z"   // Orange
-#define L_CHANGED             "`5a"   // Changed
-#define L_NO_DST              "`5b"   // (no daylight saving)
-#define L_P_GREEN             "`5c"   // Green
-#define L_FRI                 "`5d"   // Fri
-#define L_MEMORY              "`5e"   // Memory
-#define L_FILES               "`5f"   // Files
-#define L_NETMASK             "`5g"   // Netmask
-#define L_REVERSE             "`5h"   // Reverse
-#define L_S_BUTTON            "`5i"   // Button or switch
-#define L_A_MOTOR             "`5j"   // DC motor
-#define L_AGO                 "`5k"   // {0} ago
-#define L_WED                 "`5l"   // Wed
-#define L_THU                 "`5m"   // Thu
-#define L_SAT                 "`5n"   // Sat
-#define L_OPEN_BTN            "`5o"   // Open
-#define L_V_OPEN              "`5p"   // open
-#define L_OPEN_ANGLE          "`5q"   // Open angle
-#define L_ANGLE               "`5r"   // Angle
-#define L_CLOSED_ANGLE        "`5s"   // Closed angle
-#define L_V_CLOSED            "`5t"   // closed
-#define L_CLOSE_BTN           "`5u"   // Close
-#define L_A_LOCK              "`5v"   // Solenoid lock
-#define L_A_VALVE             "`5w"   // Solenoid valve
-#define L_MODE                "`5x"   // Mode
-#define L_V_WET               "`5y"   // wet
-#define L_MANUAL              "`5z"   // manual
-#define L_TO                  "`60"   // To
-#define L_TOTAL               "`61"   // Total
-#define L_YES_CLEAR           "`62"   // Yes, clear everything
-#define L_S_RAIN              "`63"   // Rain
-#define L_V_RAIN              "`64"   // rain
-#define L_A_PUMP              "`65"   // Pump
-#define L_A_BUZZER            "`66"   // Buzzer
-#define L_V_ERROR             "`67"   // error
-#define L_P_BLUE              "`68"   // Blue
-#define L_P_GRAY              "`69"   // Gray
+#define L_DOWNLOAD_LOG        "`2i"   // Download the log (24 h)
+#define L_LOGS                "`2j"   // Logs
+#define L_SYSTEM_LOG          "`2k"   // System log
+#define L_SYSTEM              "`2l"   // System
+#define L_NTFY_TOPIC          "`2m"   // ntfy topic
+#define L_COMMAND_TOPIC       "`2n"   // Command topic
+#define L_SAME_TOPIC          "`2o"   // The command topic must be different
+#define L_INVALID_CMD_TOPIC   "`2p"   // Invalid command topic (use letters, digits, _ or -)
+#define L_INVALID_TOPIC       "`2q"   // Invalid topic (use letters, digits, _ or -)
+#define L_INVALID_CF_TOKEN    "`2r"   // Invalid token (letters, digits, _ or -)
+#define L_INVALID_HOSTNAME    "`2s"   // Invalid hostname (letters, digits and hyphen)
+#define L_INVALID_NAMES       "`2t"   // Invalid addresses (letters, digits, dots, hyphens and commas)
+#define L_INVALID_RECORD_NAME "`2u"   // Invalid name: letters, digits, dots and dashes, inside the chosen domain
+#define L_INVALID_REMOTE_NAME "`2v"   // Invalid name: lowercase letters, digits and dashes, not at the ends
+#define L_INVALID_NAME        "`2w"   // Invalid name (up to 31 characters, no quotes)
+#define L_NAME                "`2x"   // Name
+#define L_RECORD_NAME         "`2y"   // Name kept at your IP
+#define L_RECORD_HELP         "`2z"   // A name in the domain, like home.example.com or just home: created if missing and kept on your public IP.
+#define L_PUBLIC_IP           "`30"   // Public IP
+#define L_LOCAL_IP            "`31"   // Local IP
+#define L_LOCAL_API           "`32"   // Local API
+#define L_J_RULE_WINDOW       "`33"   // Only between {0} and {1} (local time); off outside it.
+#define L_WINDOW_HELP         "`34"   // Outside it, automatic mode keeps the actuator off; a manual command holds until auto. Time zone: Settings.
+#define L_AUTO_OUTSIDE        "`35"   // automatic, outside the window
+#define L_WINDOW_SAME         "`36"   // The window needs different start and end times
+#define L_RESET               "`37"   // Reset
+#define L_WIFI_SET            "`38"   // Wi-Fi set! Restarting...
+#define L_SETUP_MODE          "`39"   // Setup mode - connect to Wi-Fi
+#define L_CONNECT             "`3A"   // Connect
+#define L_V_CONNECTED         "`3B"   // connected
+#define L_V_CONNECTING        "`3C"   // connecting
+#define L_CONNECTION          "`3D"   // Connection
+#define L_HOSTNAME_HINT       "`3E"   // (router; applies on the next connection)
+#define L_SIGN_IN             "`3F"   // Sign in
+#define L_SIGN_OUT            "`3G"   // Sign out
+#define L_S_GAS               "`3H"   // Gas or smoke (MQ, D0 output)
+#define L_V_GAS               "`3I"   // gas
+#define L_LARGEST_BLOCK       "`3J"   // Largest block
+#define L_SLOW_LOOPS          "`3K"   // Loops over 200 ms
+#define L_SLOWEST_LOOP        "`3L"   // Slowest loop
+#define L_STACK_FREE          "`3M"   // Lowest free stack
+#define L_FREE                "`3N"   // Free
+#define L_V_CLEAR             "`3O"   // clear
+#define L_FREE_HEAP           "`3P"   // Free heap
+#define L_RATE                "`3Q"   // Rate
+#define L_STATE               "`3R"   // State
+#define L_STATUS              "`3S"   // Status
+#define L_USED                "`3T"   // Used
+#define L_RULE_VALUE          "`3U"   // Value used by the rule
+#define L_RULE                "`3V"   // Rule
+#define L_OTA_RESERVE         "`3W"   // OTA reserve
+#define L_NETWORK             "`3X"   // Network
+#define L_NET_TURN            "`3Y"   // Network turn
+#define L_API_TOKEN           "`3Z"   // API Token
+#define L_TOKEN               "`3a"   // Token
+#define L_INVALID_NTFY_TOKEN  "`3b"   // Invalid ntfy token
+#define L_NTFY_TOKEN          "`3c"   // ntfy access token
+#define L_REMOTE              "`3d"   // Remote access
+#define L_WORKER              "`3e"   // Worker - remote access
+#define L_REMOTE_OFF_DONE     "`3f"   // Remote access off
+#define L_POLL                "`3g"   // Commands through remote access: check every
+#define L_NTFY_COMMANDS       "`3h"   // Commands over ntfy
+#define L_NTFY_HOST           "`3i"   // ntfy server
+#define L_NTFY_HOST_HELP      "`3j"   // Blank: ntfy.sh. Your own server: its name only, on HTTPS with a Let's Encrypt or Google certificate.
+#define L_KEEP_BLANK          "`3k"   // (leave blank to keep)
+#define L_BLANK_KEEPS         "`3l"   // (blank keeps it)
+#define L_OPTIONAL_KEEPS      "`3m"   // (optional; blank keeps it)
+#define L_REMOTE_HELP         "`3n"   // The panel and the API at an HTTPS address of yours, from anywhere, through a Cloudflare Worker this device sets up. No router port to open; the panel keeps its password and authenticator.
+#define L_MFA_REPLACE_HELP    "`3o"   // Current password and code. The panel then shows a new key.
+#define L_SET_PASSWORD        "`3p"   // Set a password to unlock the panel
+#define L_PASS_LENGTH         "`3q"   // The password must have 8 to 64 characters
+#define L_WIFI_PASS_LENGTH    "`3r"   // The Wi-Fi password must have 8 to 63 characters
+#define L_GATEWAY             "`3s"   // Gateway
+#define L_A_GATE              "`3t"   // Gate or garage door
+#define L_S_DOOR              "`3u"   // Door or window (reed)
+#define L_BROKER_HINT         "`3v"   // (host or host:port)
+#define L_INVALID_BROKER      "`3w"   // Invalid broker (use host or host:port)
+#define L_OPEN_ANGLE          "`3x"   // Open angle
+#define L_V_OPEN              "`3y"   // open
+#define L_OPEN_BTN            "`3z"   // Open
+#define L_V_WAITING           "`40"   // waiting
+#define L_V_PAUSED            "`41"   // paused
+#define L_CAUSE               "`42"   // Cause
+#define L_P_GND               "`43"   // GND, common ground
+#define L_J_HINT_SERVO        "`44"   // Servo on a separate 5 V supply with GND shared with the ESP.
+#define L_ON_SUPPLY           "`45"   // On supply
+#define L_V_ON_SUPPLY         "`46"   // on supply
+#define L_FRAGMENTATION       "`47"   // Fragmentation
+#define L_G_POSITION          "`48"   // Position
+#define L_V_MOTION            "`49"   // motion
+#define L_S_PIR               "`4A"   // Motion (PIR)
+#define L_S_LEAK              "`4B"   // Water leak
+#define L_S_FLOAT             "`4C"   // Float switch (water level)
+#define L_J_RULE_LINEAR       "`4D"   // Level proportional from {0} to {1} {2}.
+#define L_AGO                 "`4E"   // {0} ago
+#define L_NAME_HINT           "`4F"   // (panel and Home Assistant)
+#define L_PANEL_ACCESS        "`4G"   // Panel access
+#define L_POLL_HELP           "`4H"   // With remote access on, the Worker checks the command topic this often. Free plan: 100,000 requests a day; 2 s uses about 43,000, 5 s 17,000, 30 s 3,000.
+#define L_SHORT_TOPIC_WARN    "`4I"   // Short command topic and no token: anyone who guesses the name controls the device
+#define L_CF_CLEAR_ASK        "`4J"   // Remove the token and every Cloudflare setting from this device? The Worker and the DNS record stay in your account.
+#define L_CF_CLEARED          "`4K"   // Cloudflare token and settings removed
+#define L_CF_NEEDS_TOKEN      "`4L"   // Register the Cloudflare API token in Settings first.
+#define L_UNKNOWN_ZONE        "`4M"   // Pick a domain from the list (missing: save the token again)
+#define L_DOMAIN              "`4N"   // Domain
+#define L_CF_ZONES            "`4O"   // Domains this token reaches:
+#define L_TOKEN_SET           "`4P"   // Token set:
+#define L_TOKEN_NOT_SET       "`4Q"   // Token not set
+#define L_TOPIC_NOT_SET       "`4R"   // Topic not set - notifications off
+#define L_NTFY_TITLE          "`4S"   // ntfy notifications
+#define L_MFA_HELP            "`4T"   // Add this key to an authenticator app, then enter the code.
+#define L_SET_NTFY_TOPIC      "`4U"   // Set the ntfy topic to send the reading
+#define L_TOPIC               "`4V"   // Topic:
+#define L_TOPICS              "`4W"   // Topics
+#define L_TEMPERATURE         "`4X"   // Temperature
+#define L_S_DS18              "`4Y"   // Temperature (DS18B20)
+#define L_S_DHT22             "`4Z"   // Temperature and humidity (DHT22)
+#define L_S_DHT11             "`4a"   // Temperature and humidity (DHT11)
+#define L_G_TEMP_HUM          "`4b"   // Temperature and humidity
+#define L_S_SHT3X             "`4c"   // Temperature and humidity (SHT30/SHT31, I2C)
+#define L_S_AHT               "`4d"   // Temperature and humidity (AHT20/AHT21, I2C)
+#define L_HUMIDITY            "`4e"   // Humidity
+#define L_UNIT                "`4f"   // Unit
+#define L_S_LUX               "`4g"   // Light (BH1750, I2C)
+#define L_BRIGHTNESS          "`4h"   // Brightness
+#define L_ADDRESS             "`4i"   // Address
+#define L_OTHER_NAMES         "`4j"   // Other addresses
+#define L_REMOTE_NAME         "`4k"   // Name (the first part of the address, and the Worker's name)
+#define L_WD_NAME             "`4l"   // workers.dev name for the account (only if it has none yet)
+#define L_CF_TOKEN_HELP       "`4m"   // In Cloudflare, My Profile, API Tokens, with: Zone Read, DNS Edit, Workers Routes Edit, Account Settings Read, Workers Scripts Edit.
+#define L_CF_WORKING          "`4n"   // Working with Cloudflare...
+#define L_CF_FAILED           "`4o"   // Cloudflare refused
+#define L_CLOSED_ANGLE        "`4p"   // Closed angle
+#define L_V_CLOSED            "`4q"   // closed
+#define L_CLOSE_BTN           "`4r"   // Close
+#define L_A_LOCK              "`4s"   // Solenoid lock
+#define L_A_VALVE             "`4t"   // Solenoid valve
+#define L_P_GREEN             "`4u"   // Green
+#define L_NO_DST              "`4v"   // (no daylight saving)
+#define L_LED_COUNT           "`4w"   // Number of LEDs
+#define L_A_STRIP             "`4x"   // LED strip (WS2812)
+#define L_J_HINT_WS2812       "`4y"   // WS2812 on 5 V: 330 Ohm resistor on the data line; up to 60 LEDs.
+#define L_J_HINT_RANGE        "`4z"   // HC-SR04: trig and echo together on one pin, with 1 kOhm on echo; up to 400 cm.
+#define L_J_HINT_SHT3X        "`50"   // I2C: SDA on this pin, SCL on its pair (GPIO0 with GPIO2, RX with TX); 4.7 kOhm pull-ups; address
+#define L_GAUGE_HINT          "`51"   // (SDA; SCL goes on the pair: GPIO0 with GPIO2, RX with TX)
+#define L_J_HINT_DIGITAL      "`52"   // Module with a digital output (D0); sensitivity is set on the trimpot.
+#define L_S_DIGITAL           "`53"   // Digital (flame, soil, sound)
+#define L_V_RELEASED          "`54"   // released
+#define L_A_RELAY             "`55"   // Relay
+#define L_CLOCK_NOT_SYNC      "`56"   // clock not synchronized
+#define L_MON                 "`57"   // Mon
+#define L_MENU                "`58"   // Menu
+#define L_POWER               "`59"   // Power
+#define L_V_DRY               "`5A"   // dry
+#define L_GAUGE_PINS_TAKEN    "`5B"   // The gauge pins are taken by the sensor or the actuator
+#define L_P_TITLE             "`5C"   // ESP-01 pins, top view, antenna on the left
+#define L_P_VIEW              "`5D"   // top view · antenna on the left
+#define L_P_ANTENNA           "`5E"   // antenna
+#define L_A_LED               "`5F"   // Dimmable LED
+#define L_AVAILABLE           "`5G"   // Available
+#define L_BACK                "`5H"   // Back
+#define L_BACK_AUTO           "`5I"   // Back to automatic
+#define L_RESTORE_LAST        "`5J"   // On power-up, go back to the last command
+#define L_VOLTAGE             "`5K"   // Voltage
+#define L_CURRENT_VERSION     "`5L"   // Current version
+#define L_MANUAL              "`5M"   // manual
+#define L_VALUE_TOO_LONG      "`5N"   // Value too long
+#define L_TYPE_DEFAULT        "`5O"   // type default
+#define L_TYPE                "`5P"   // Type
+#define L_OTA_PROGRESS        "`5Q"   // OTA in progress:
+#define L_IN_10S              "`5R"   // in 10 s
+#define L_P_CHPD              "`5S"   // CH_PD stays at 3.3 V
+#define L_P_3V3               "`5T"   // 3.3 V
+#define L_P_VCC               "`5U"   // VCC is 3.3 V
+#define L_PINOUT_ALT          "`5V"   // ESP-01 pins, top view: GPIO0, RX (GPIO3), GPIO2, GND; VCC 3.3 V, RST, CH_PD, TX (GPIO1)
+#define L_PIN                 "`5W"   // Pin
+#define L_OTHER_NAMES_HINT    "`5X"   // (names of a tunnel or proxy, separated by commas)
+#define L_FROM                "`5Y"   // From
+#define L_SUN                 "`5Z"   // Sun
+#define L_CHIP_ID             "`5a"   // Chip ID
+#define L_P_ORANGE            "`5b"   // Orange
+#define L_CHANGED             "`5c"   // Changed
+#define L_MEMORY              "`5d"   // Memory
+#define L_API_HELP            "`5e"   // No internet, same network: GET /api/state and POST /api/cmd with the Authorization: Bearer header and the token.
+#define L_G_MOTION            "`5f"   // Presence, contact and alarms
+#define L_V_PRESENCE          "`5g"   // presence
+#define L_S_RADAR             "`5h"   // Presence radar (LD2410, RCWL-0516)
+#define L_V_PRESSED           "`5i"   // pressed
+#define L_V_WET               "`5j"   // wet
+#define L_MODE                "`5k"   // Mode
+#define L_YES_CLEAR           "`5l"   // Yes, clear everything
+#define L_J_HINT_DHT11        "`5m"   // DHT11/DHT22: 4.7 to 10 kOhm pull-up between data and 3.3 V; one reading every 2 s.
+#define L_J_HINT_DS18         "`5n"   // DS18B20: 4.7 kOhm pull-up between data and 3.3 V.
+#define L_FILES               "`5o"   // Files
+#define L_NETMASK             "`5p"   // Netmask
+#define L_REVERSE             "`5q"   // Reverse
+#define L_S_BUTTON            "`5r"   // Button or switch
+#define L_A_MOTOR             "`5s"   // DC motor
+#define L_CF_RECORD_READY     "`5t"   // DDNS record ready:
+#define L_CF_CLEAR            "`5u"   // Unregister
+#define L_TUE                 "`5v"   // Tue
+#define L_WED                 "`5w"   // Wed
+#define L_THU                 "`5x"   // Thu
+#define L_FRI                 "`5y"   // Fri
+#define L_SAT                 "`5z"   // Sat
+#define L_ANGLE               "`60"   // Angle
+#define L_COLOR               "`61"   // Color
+#define L_TO                  "`62"   // To
+#define L_TOTAL               "`63"   // Total
+#define L_S_RAIN              "`64"   // Rain
+#define L_V_RAIN              "`65"   // rain
+#define L_A_PUMP              "`66"   // Pump
+#define L_A_BUZZER            "`67"   // Buzzer
+#define L_V_ERROR             "`68"   // error
+#define L_P_BLUE              "`69"   // Blue
+#define L_P_GRAY              "`6A"   // Gray

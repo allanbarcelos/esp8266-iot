@@ -276,6 +276,7 @@ private:
 
     static constexpr char P_ROOT[] PROGMEM = "/";
     static constexpr char P_LOG[] PROGMEM = "/log";
+    static constexpr char P_LOG_TXT[] PROGMEM = "/log.txt";
     static constexpr char P_STATUS[] PROGMEM = "/status";
     static constexpr char P_CLOUDFLARE[] PROGMEM = "/cloudflare";
     static constexpr char P_NTFY[] PROGMEM = "/ntfy";
@@ -1263,19 +1264,37 @@ private:
         // The current file and RAM. Each line starts with its time, Unix or
         // "+" seconds since boot (the clock was not set): i18n.js writes the
         // date, in the time zone of Settings (data-tz)
-        _p(H("<pre id='lg' data-tz='"));
+        // The download: every file, as text (i18n.js writes the dates there too)
+        _p(H("<a class='b b2' id='dl' href='/log.txt' download='log.txt'>" L_DOWNLOAD_LOG "</a>"
+             "<pre id='lg' data-tz='"));
         _s(String(_cfg.tz));
         _p(S_TAG_END);
-        _log.each([](void* ctx, uint32_t t, const char* text) {
-            WebService& w = *static_cast<WebService*>(ctx);
-            char b[16];
-            snprintf_P(b, sizeof(b), t < Clock::MIN_VALID_EPOCH ? PSTR("+%lu ") : PSTR("%lu "), (unsigned long)t);
-            w._s(b);
-            w._e(text);
-            w._p(H("\n"));
-        }, this, 2);
+        _logLines(true, 2);
         _p(H("</pre>"));
         _pageEnd();
+    }
+
+    void _handleLogText() {
+        if (!_guard()) return;
+        _noStore();
+        _server.setContentLength(HttpServer::UNKNOWN_LENGTH);
+        _server.send(200, "text/plain", "");
+        _logLines(false, 0);
+    }
+
+    // The log's lines from file `from` on (Logger::each), each after its
+    // time; escaped for the page, as it is for the text file
+    void _logLines(bool html, uint8_t from) {
+        struct Out { WebService* w; bool html; } out{this, html};
+        _log.each([](void* ctx, uint32_t t, const char* text) {
+            Out& o = *static_cast<Out*>(ctx);
+            char b[16];
+            snprintf_P(b, sizeof(b), t < Clock::MIN_VALID_EPOCH ? PSTR("+%lu ") : PSTR("%lu "), (unsigned long)t);
+            o.w->_s(b);
+            if (o.html) o.w->_e(text);
+            else o.w->_s(text);
+            o.w->_p(H("\n"));
+        }, &out, from);
     }
 
     void _handleStatus() {
@@ -2646,6 +2665,7 @@ private:
 inline const WebService::Route WebService::ROUTES[] PROGMEM = {
     {HttpServer::GET, P_ROOT, [](WebService& w) { w._handleRoot(); }},
     {HttpServer::GET, P_LOG, [](WebService& w) { w._handleLog(); }},
+    {HttpServer::GET, P_LOG_TXT, [](WebService& w) { w._handleLogText(); }},
     {HttpServer::GET, P_STATUS, [](WebService& w) { w._handleStatus(); }},
     {HttpServer::GET, P_CLOUDFLARE, [](WebService& w) { w._handleCloudflare(); }},
     {HttpServer::GET, P_NTFY, [](WebService& w) { w._handleNtfy(); }},

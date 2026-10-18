@@ -21,11 +21,13 @@
 // once it is) and its text packed with LogPairs.h, up to '\n'. The current
 // file, /log.0, takes about one LittleFS block; full, it becomes /log.1 and
 // that one /log.2, whose lines go: the log never takes more than 3 blocks.
+// A kept file whose newest line is more than a day old goes too (KEEP_S).
 class Logger {
 public:
     static constexpr size_t        PENDING  = 512;      // bytes of lines waiting in RAM
     static constexpr size_t        FILE_MAX = 4000;     // a LittleFS block, 4096, with room to spare
     static constexpr unsigned long FLUSH_MS = 600000UL; // 10 min
+    static constexpr uint32_t      KEEP_S   = 86400;    // a kept file, at most a day
     static constexpr const char*   PATHS[]  = {"/log.2", "/log.1", "/log.0"};   // oldest first
 
     using LineFn = void (*)(void* ctx, uint32_t time, const char* text);
@@ -60,15 +62,27 @@ public:
     }
 
     void tick(unsigned long now) {
-        if (_used && (_used >= PENDING / 2 || now - _flushed >= FLUSH_MS)) flush(now);
+        if (_used >= PENDING / 2 || now - _flushed >= FLUSH_MS) flush(now);
     }
 
-    // Writes what waits to /log.0 (rotating it when full). Without the file
-    // system the lines go: they are on Serial.
+    // Writes what waits to /log.0 (rotating it when full), after the kept
+    // files older than a day go. Without the file system the lines go: they
+    // are on Serial.
     void flush(unsigned long now = millis()) {
         _flushed = now;
+        bool synced = _clock && _clock->synced();
+        if (synced) {
+            // /log.1 old: /log.2 is older still
+            uint32_t at = (uint32_t)_clock->now();
+            for (uint8_t k = 2; k-- > 0;) {
+                uint32_t newest = 0;
+                each([](void* ctx, uint32_t t, const char*) { *static_cast<uint32_t*>(ctx) = t; }, &newest, k, k + 1);
+                if (newest >= Clock::MIN_VALID_EPOCH && at - newest > KEEP_S)
+                    for (uint8_t j = 0; j <= k; j++) LittleFS.remove(PATHS[j]);
+            }
+        }
         if (!_used) return;
-        if (_clock && _clock->synced()) {
+        if (synced) {
             // Since boot until now: from here on they can have the real time
             uint32_t boot = (uint32_t)_clock->now() - now / 1000;
             for (size_t i = 0; i < _used; i = _next(i)) {
@@ -95,10 +109,10 @@ public:
         _used = 0;
     }
 
-    // Every line, oldest first: the files (from `from` of PATHS), then RAM.
-    // The time as stored: the panel's script writes it as a date.
-    void each(LineFn fn, void* ctx, uint8_t from = 0) const {
-        for (uint8_t k = from; k < 4; k++) {
+    // Every line, oldest first: the files (PATHS from `from`), then RAM (4th,
+    // up to `to`). The time as stored: the panel's script writes it as a date.
+    void each(LineFn fn, void* ctx, uint8_t from = 0, uint8_t to = 4) const {
+        for (uint8_t k = from; k < to; k++) {
             Source src{};
             if (k < 3) {
                 src.f = LittleFS.open(PATHS[k], "r");

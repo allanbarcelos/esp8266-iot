@@ -164,6 +164,15 @@ void test_log_page() {
     TEST_ASSERT_TRUE(contains(f.srv.raw, "<pre id='lg' data-tz='-180'>1792005120 from the file\n"));
     TEST_ASSERT_TRUE(contains(f.srv.raw, "\n+7 in RAM\n</pre>"));
     TEST_ASSERT_FALSE(contains(f.srv.raw, "older file"));
+    TEST_ASSERT_TRUE(contains(f.srv.raw, "<a class='b b2' id='dl' href='/log.txt' download='log.txt'>"));
+
+    // The download: every file, then RAM, as text (not escaped)
+    logger.log("%s", "<b>&");
+    f.get("/log.txt");
+    TEST_ASSERT_EQUAL(200, f.srv.code);
+    TEST_ASSERT_TRUE(contains(f.srv.raw, "Content-Type: text/plain"));
+    TEST_ASSERT_TRUE(contains(f.srv.raw, "\r\n\r\n+1 older file\n1792005120 from the file\n"));
+    TEST_ASSERT_TRUE(contains(f.srv.raw, "\n+7 <b>&\n"));
 }
 
 void test_mask_secret() {
@@ -239,7 +248,7 @@ void test_without_password_redirects_to_set_password() {
 void test_authentication_required() {
     Fixture f;
     f.srv.authOk = false;
-    const char* paths[] = {"/", "/status", "/log", "/cloudflare", "/ntfy", "/mqtt", "/password",
+    const char* paths[] = {"/", "/status", "/log", "/log.txt", "/cloudflare", "/ntfy", "/mqtt", "/password",
                            "/update", "/iot", "/config", "/mfa"};
     for (const char* p : paths) {
         f.get(p);
