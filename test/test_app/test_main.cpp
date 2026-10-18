@@ -42,9 +42,15 @@ void test_begin_logs_where_the_last_boot_crashed() {
     App app;
     app.begin();
     TEST_ASSERT_TRUE(logHas(app.logger, "Crashed in: web near 0x40201000"));
+    TEST_ASSERT_EQUAL_STRING("web near 0x40201000", MockFS::files["/crash"].c_str());   // for Status
     App again;                                              // this boot is recorded as booting
     again.begin();
     TEST_ASSERT_TRUE(logHas(again.logger, "Crashed in: - near 0x40201000"));
+    // Without the file system it is only logged
+    MockFS::failWriteOpen = true;
+    App third;
+    third.begin();
+    TEST_ASSERT_EQUAL_STRING("- near 0x40201000", MockFS::files["/crash"].c_str());
 }
 
 // Battery gauge set up and not answering: tick reads and reports it

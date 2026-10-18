@@ -20,6 +20,8 @@
 //                          sent on connect, on change and every TELE_MS
 //                          even without a change (Tasmota's TelePeriod): a
 //                          lost message does not leave HA without a state
+//   esp8266iot/<id>/diag   free heap, largest block, Wi-Fi signal and uptime
+//                          (JSON), retained; on connect and every TELE_MS
 //   esp8266iot/<id>/avail  online, or offline through the will when the
 //                          connection drops; retained
 //   esp8266iot/<id>/cmd    commands, with the same text as the panel and
@@ -242,6 +244,11 @@ private:
         _sum = sum;
         _lastSent = now;
         _publish("state", json, n, now);
+        if (!force) return;
+        n = (size_t)snprintf_P(json, sizeof(json), PSTR("{\"heap\":%u,\"block\":%u,\"rssi\":%d,\"up\":%lu}"),
+                               (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMaxFreeBlockSize(), (int)WiFi.RSSI(),
+                               millis() / 1000);
+        _publish("diag", json, n, now);
     }
 
     // Everything the device publishes is retained: a later subscriber gets it right away
@@ -462,6 +469,26 @@ private:
                     _outP(PSTR("|default(none)}}\""));
                 }
             }
+            _outP(PSTR("}"));
+        }
+        // Diagnostics, from the diag topic: each one's ending, after \0
+        static const char DIAG[] PROGMEM =
+            "heap}}\",\"name\":\"Free heap\",\"unit_of_meas\":\"B\"\0"
+            "block}}\",\"name\":\"Largest block\",\"unit_of_meas\":\"B\"\0"
+            "rssi}}\",\"dev_cla\":\"signal_strength\",\"unit_of_meas\":\"dBm\"\0"
+            "up}}\",\"dev_cla\":\"duration\",\"unit_of_meas\":\"s\"";
+        PGM_P end = DIAG;
+        for (uint8_t i = 0; i < 4; i++, end += strlen_P(end) + 1) {
+            const char head[] = {',', '"', (char)('0' + i), '"', ':', '{', '\0'};
+            _out(head);
+            _outP(PSTR("\"p\":\"sensor\",\"ent_cat\":\"diagnostic\",\"stat_cla\":\"measurement\",\"uniq_id\":\"esp8266iot_"));
+            _out(id);
+            const char tail[] = {'_', (char)('0' + i), '"', '\0'};
+            _out(tail);
+            _outP(PSTR(",\"stat_t\":\""));
+            _out(_base);
+            _outP(PSTR("/diag\",\"val_tpl\":\"{{value_json."));
+            _outP(end);
             _outP(PSTR("}"));
         }
         _outP(PSTR("}}"));

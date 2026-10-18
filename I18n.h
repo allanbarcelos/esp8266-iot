@@ -337,56 +337,57 @@
 #define L_BACK                "`5H"   // Back
 #define L_BACK_AUTO           "`5I"   // Back to automatic
 #define L_RESTORE_LAST        "`5J"   // On power-up, go back to the last command
-#define L_VOLTAGE             "`5K"   // Voltage
-#define L_CURRENT_VERSION     "`5L"   // Current version
-#define L_MANUAL              "`5M"   // manual
-#define L_VALUE_TOO_LONG      "`5N"   // Value too long
-#define L_TYPE_DEFAULT        "`5O"   // type default
-#define L_TYPE                "`5P"   // Type
-#define L_OTA_PROGRESS        "`5Q"   // OTA in progress:
-#define L_IN_10S              "`5R"   // in 10 s
-#define L_P_CHPD              "`5S"   // CH_PD stays at 3.3 V
-#define L_P_3V3               "`5T"   // 3.3 V
-#define L_P_VCC               "`5U"   // VCC is 3.3 V
-#define L_PINOUT_ALT          "`5V"   // ESP-01 pins, top view: GPIO0, RX (GPIO3), GPIO2, GND; VCC 3.3 V, RST, CH_PD, TX (GPIO1)
-#define L_PIN                 "`5W"   // Pin
-#define L_OTHER_NAMES_HINT    "`5X"   // (names of a tunnel or proxy, separated by commas)
-#define L_FROM                "`5Y"   // From
-#define L_SUN                 "`5Z"   // Sun
-#define L_CHIP_ID             "`5a"   // Chip ID
-#define L_P_ORANGE            "`5b"   // Orange
-#define L_CHANGED             "`5c"   // Changed
-#define L_MEMORY              "`5d"   // Memory
-#define L_API_HELP            "`5e"   // No internet, same network: GET /api/state and POST /api/cmd with the Authorization: Bearer header and the token.
-#define L_G_MOTION            "`5f"   // Presence, contact and alarms
-#define L_V_PRESENCE          "`5g"   // presence
-#define L_S_RADAR             "`5h"   // Presence radar (LD2410, RCWL-0516)
-#define L_V_PRESSED           "`5i"   // pressed
-#define L_V_WET               "`5j"   // wet
-#define L_MODE                "`5k"   // Mode
-#define L_YES_CLEAR           "`5l"   // Yes, clear everything
-#define L_J_HINT_DHT11        "`5m"   // DHT11/DHT22: 4.7 to 10 kOhm pull-up between data and 3.3 V; one reading every 2 s.
-#define L_J_HINT_DS18         "`5n"   // DS18B20: 4.7 kOhm pull-up between data and 3.3 V.
-#define L_FILES               "`5o"   // Files
-#define L_NETMASK             "`5p"   // Netmask
-#define L_REVERSE             "`5q"   // Reverse
-#define L_S_BUTTON            "`5r"   // Button or switch
-#define L_A_MOTOR             "`5s"   // DC motor
-#define L_CF_RECORD_READY     "`5t"   // DDNS record ready:
-#define L_CF_CLEAR            "`5u"   // Unregister
-#define L_TUE                 "`5v"   // Tue
-#define L_WED                 "`5w"   // Wed
-#define L_THU                 "`5x"   // Thu
-#define L_FRI                 "`5y"   // Fri
-#define L_SAT                 "`5z"   // Sat
-#define L_ANGLE               "`60"   // Angle
-#define L_COLOR               "`61"   // Color
-#define L_TO                  "`62"   // To
-#define L_TOTAL               "`63"   // Total
-#define L_S_RAIN              "`64"   // Rain
-#define L_V_RAIN              "`65"   // rain
-#define L_A_PUMP              "`66"   // Pump
-#define L_A_BUZZER            "`67"   // Buzzer
-#define L_V_ERROR             "`68"   // error
-#define L_P_BLUE              "`69"   // Blue
-#define L_P_GRAY              "`6A"   // Gray
+#define L_LAST_CRASH          "`5K"   // Last crash
+#define L_OTA_PROGRESS        "`5L"   // OTA in progress:
+#define L_IN_10S              "`5M"   // in 10 s
+#define L_P_CHPD              "`5N"   // CH_PD stays at 3.3 V
+#define L_P_3V3               "`5O"   // 3.3 V
+#define L_P_VCC               "`5P"   // VCC is 3.3 V
+#define L_PINOUT_ALT          "`5Q"   // ESP-01 pins, top view: GPIO0, RX (GPIO3), GPIO2, GND; VCC 3.3 V, RST, CH_PD, TX (GPIO1)
+#define L_PIN                 "`5R"   // Pin
+#define L_VALUE_TOO_LONG      "`5S"   // Value too long
+#define L_TYPE_DEFAULT        "`5T"   // type default
+#define L_TYPE                "`5U"   // Type
+#define L_OTHER_NAMES_HINT    "`5V"   // (names of a tunnel or proxy, separated by commas)
+#define L_FROM                "`5W"   // From
+#define L_SUN                 "`5X"   // Sun
+#define L_CHIP_ID             "`5Y"   // Chip ID
+#define L_P_ORANGE            "`5Z"   // Orange
+#define L_CHANGED             "`5a"   // Changed
+#define L_MEMORY              "`5b"   // Memory
+#define L_API_HELP            "`5c"   // No internet, same network: GET /api/state and POST /api/cmd with the Authorization: Bearer header and the token.
+#define L_G_MOTION            "`5d"   // Presence, contact and alarms
+#define L_V_PRESENCE          "`5e"   // presence
+#define L_S_RADAR             "`5f"   // Presence radar (LD2410, RCWL-0516)
+#define L_V_PRESSED           "`5g"   // pressed
+#define L_V_WET               "`5h"   // wet
+#define L_MODE                "`5i"   // Mode
+#define L_YES_CLEAR           "`5j"   // Yes, clear everything
+#define L_J_HINT_DHT11        "`5k"   // DHT11/DHT22: 4.7 to 10 kOhm pull-up between data and 3.3 V; one reading every 2 s.
+#define L_J_HINT_DS18         "`5l"   // DS18B20: 4.7 kOhm pull-up between data and 3.3 V.
+#define L_FILES               "`5m"   // Files
+#define L_NETMASK             "`5n"   // Netmask
+#define L_VOLTAGE             "`5o"   // Voltage
+#define L_CURRENT_VERSION     "`5p"   // Current version
+#define L_MANUAL              "`5q"   // manual
+#define L_REVERSE             "`5r"   // Reverse
+#define L_S_BUTTON            "`5s"   // Button or switch
+#define L_A_MOTOR             "`5t"   // DC motor
+#define L_CF_RECORD_READY     "`5u"   // DDNS record ready:
+#define L_CF_CLEAR            "`5v"   // Unregister
+#define L_TUE                 "`5w"   // Tue
+#define L_WED                 "`5x"   // Wed
+#define L_THU                 "`5y"   // Thu
+#define L_FRI                 "`5z"   // Fri
+#define L_SAT                 "`60"   // Sat
+#define L_ANGLE               "`61"   // Angle
+#define L_COLOR               "`62"   // Color
+#define L_TO                  "`63"   // To
+#define L_TOTAL               "`64"   // Total
+#define L_S_RAIN              "`65"   // Rain
+#define L_V_RAIN              "`66"   // rain
+#define L_A_PUMP              "`67"   // Pump
+#define L_A_BUZZER            "`68"   // Buzzer
+#define L_V_ERROR             "`69"   // error
+#define L_P_BLUE              "`6A"   // Blue
+#define L_P_GRAY              "`6B"   // Gray

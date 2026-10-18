@@ -436,11 +436,18 @@ void test_state_republished_periodically() {
     const Packet* st = until(330000);
     TEST_ASSERT_NOT_NULL(st);
     TEST_ASSERT_EQUAL(1, st->flags & 1);         // retained
+    // The diagnostics go with it, retained
+    const Packet* dg = published(f.net.out, "esp8266iot/00dead/diag");
+    TEST_ASSERT_NOT_NULL(dg);
+    TEST_ASSERT_EQUAL(1, dg->flags & 1);
+    TEST_ASSERT_EQUAL_STRING("{\"heap\":50000,\"block\":", payloadOf(*dg).substr(0, 22).c_str());
+    TEST_ASSERT_TRUE(contains(payloadOf(*dg), ",\"rssi\":-70,\"up\":"));
 
-    // A change in between restarts the count
+    // A change in between restarts the count (the diagnostics wait for it)
     TEST_ASSERT_NULL(until(450000));
     f.iot.command("on", 450000);
     TEST_ASSERT_NOT_NULL(until(480000));
+    TEST_ASSERT_NULL(published(f.net.out, "esp8266iot/00dead/diag"));
     TEST_ASSERT_NULL(until(480000 + MqttService::TELE_MS - 30000));
     TEST_ASSERT_NOT_NULL(until(480000 + MqttService::TELE_MS));
     TEST_ASSERT_TRUE(f.net.up);
@@ -535,7 +542,7 @@ static bool discovery(const std::string& out, DynamicJsonDocument& doc, size_t n
 static std::string active(DynamicJsonDocument& doc) {
     std::string s;
     JsonObject cmps = doc["cmps"];
-    TEST_ASSERT_EQUAL(10, (int)cmps.size());
+    TEST_ASSERT_EQUAL(14, (int)cmps.size());   // KEYS and the 4 diagnostics
     for (const char* k = KEYS; *k; k++) {
         char key[2] = {*k, 0};
         JsonObject e = cmps[key];
@@ -593,6 +600,24 @@ void test_discovery_device_and_topics() {
     TEST_ASSERT_TRUE(s["name"].isNull() && s.containsKey("name"));
     TEST_ASSERT_EQUAL_STRING("on", s["pl_on"]);
     TEST_ASSERT_EQUAL_STRING("off", s["pl_off"]);
+
+    // Diagnostics, always, from the diag topic
+    const char* fields[] = {"heap", "block", "rssi", "up"};
+    for (int i = 0; i < 4; i++) {
+        char key[2] = {(char)('0' + i), 0};
+        JsonObject d = doc["cmps"][key];
+        TEST_ASSERT_EQUAL_STRING("sensor", d["p"]);
+        TEST_ASSERT_EQUAL_STRING("diagnostic", d["ent_cat"]);
+        TEST_ASSERT_EQUAL_STRING("measurement", d["stat_cla"]);
+        TEST_ASSERT_EQUAL_STRING((std::string("esp8266iot_00dead_") + key).c_str(), d["uniq_id"]);
+        TEST_ASSERT_EQUAL_STRING("esp8266iot/00dead/diag", d["stat_t"]);
+        TEST_ASSERT_EQUAL_STRING((std::string("{{value_json.") + fields[i] + "}}").c_str(), d["val_tpl"]);
+    }
+    TEST_ASSERT_EQUAL_STRING("Free heap", doc["cmps"]["0"]["name"]);
+    TEST_ASSERT_EQUAL_STRING("B", doc["cmps"]["1"]["unit_of_meas"]);
+    TEST_ASSERT_EQUAL_STRING("signal_strength", doc["cmps"]["2"]["dev_cla"]);
+    TEST_ASSERT_EQUAL_STRING("dBm", doc["cmps"]["2"]["unit_of_meas"]);
+    TEST_ASSERT_EQUAL_STRING("duration", doc["cmps"]["3"]["dev_cla"]);
 
     // Order: availability, discovery, then the state
     auto v = packets(f.net.out);

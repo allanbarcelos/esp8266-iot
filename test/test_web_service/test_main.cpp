@@ -593,6 +593,10 @@ void test_status_connected() {
     TEST_ASSERT_TRUE(contains(f.out(), "192.168.1.1"));
     TEST_ASSERT_TRUE(contains(f.out(), "AA:BB:CC:DD:EE:FF"));
     TEST_ASSERT_TRUE(contains(f.out(), "Fatal &lt;exception&gt;"));
+    TEST_ASSERT_TRUE(contains(f.out(), "Last crash</span><b>-</b>"));
+    MockFS::put("/crash", "web near 0x40201000");             // kept by App at boot
+    f.get("/status");
+    TEST_ASSERT_TRUE(contains(f.out(), "Last crash</span><b>web near 0x40201000</b>"));
     TEST_ASSERT_TRUE(contains(f.out(), "<section class='c'><h2>Memory</h2>"));
     TEST_ASSERT_TRUE(contains(f.out(), "<link rel='stylesheet' href='/s.css?v=" WEB_CSS_TAG "'>"));
     TEST_ASSERT_FALSE(contains(f.out(), "Temp"));

@@ -179,6 +179,7 @@ THU	Thu	Qui	Jue	Jeu
 FRI	Fri	Sex	Vie	Ven
 SAT	Sat	Sáb	Sáb	Sam
 DOWNLOAD_LOG	Download the log (24 h)	Baixar o log (24 h)	Descargar el registro (24 h)	Télécharger le journal (24 h)
+LAST_CRASH	Last crash	Último travamento	Último fallo	Dernier plantage
 CHECK_NOW	Check now	Verificar agora	Comprobar ahora	Vérifier maintenant
 INSTALL_VERSION	Install this version	Instalar esta versão	Instalar esta versión	Installer cette version
 AUTO_UPDATE_ON	Automatic update on	Atualização automática ligada	Actualización automática activada	Mise à jour automatique activée

@@ -84,7 +84,14 @@ public:
         // getResetReason survives the reboot and says why the previous boot died.
         logger.log(PSTR("Reset: %s"), ESP.getResetReason().c_str());
         char crash[NetArbiter::CRASH_LEN];
-        if (net.lastCrash(crash)) logger.log(PSTR("Crashed in: %s"), crash);
+        if (net.lastCrash(crash)) {
+            logger.log(PSTR("Crashed in: %s"), crash);
+            File f = LittleFS.open(NetArbiter::CRASH_PATH, "w");   // for Status, after other restarts
+            if (f) {
+                f.write(reinterpret_cast<const uint8_t*>(crash), strlen(crash));
+                f.close();
+            }
+        }
         net.at(NetArbiter::NONE);
         logger.log(PSTR("System started %s"), firmware_version);
     }

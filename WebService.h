@@ -1310,6 +1310,15 @@ private:
         _row(H(L_LOCAL_TIME), _localTime(b));
         _row(H(L_RESET),   ESP.getResetReason());
         _row(H(L_CAUSE),   ESP.getResetInfo());
+        {
+            char crash[NetArbiter::CRASH_LEN] = "-";
+            File f = LittleFS.open(NetArbiter::CRASH_PATH, "r");
+            if (f) {
+                crash[f.readBytes(crash, sizeof(crash) - 1)] = '\0';
+                f.close();
+            }
+            _row(H(L_LAST_CRASH), crash);
+        }
         _rowf(H(L_CHIP_ID), PSTR("%x"), (unsigned)ESP.getChipId());
         _row(H(L_AP_PASSWORD " " AP_SSID), _wifi.apPassword());
         _rowf(H("CPU"),    PSTR("%u MHz"), (unsigned)ESP.getCpuFreqMHz());

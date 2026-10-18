@@ -109,6 +109,7 @@ public:
     // "ip near 0x40212345" if the last reset was a crash or a watchdog: the
     // part of the loop, and the address the chip recorded (out: CRASH_LEN)
     static constexpr size_t CRASH_LEN = 40;
+    static constexpr const char* CRASH_PATH = "/crash";   // the last one, kept by App
     static bool lastCrash(char* out) {
         const rst_info* r = ESP.getResetInfoPtr();
         uint32_t v = 0;
