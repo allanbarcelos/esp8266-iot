@@ -520,7 +520,7 @@ test('alarm stops without the device or its hello; without a topic, only the rel
   assert.equal(ctx.alarm, null);
   ctx.store.set('hello', {});
   await device.alarm();                       // no topic: the release, then in an hour
-  assert.deepEqual(urls, ['https://api.github.com/repos/allanbarcelos/esp8266-dns/releases/latest']);
+  assert.deepEqual(urls, ['https://api.github.com/repositories/1082797601/releases/latest']);
   assert.equal(ctx.alarm, 1_700_003_600_000);
 });
 

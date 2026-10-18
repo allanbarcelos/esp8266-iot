@@ -27,7 +27,8 @@ const RATE = 60;             // sign-in and API requests per minute per address
 // What checks a password, a code or the API token: counted per address
 const LIMITED = /^\/(api\/|login$|mfa(\/reset)?$|password\/save$|iot\/clear$)/;
 const POLLS = [2, 5, 10, 30];
-const RELEASES = 'https://api.github.com/repos/allanbarcelos/esp8266-dns/releases/latest';
+// By the repository's number: it survives a rename (the old name answers 301)
+const RELEASES = 'https://api.github.com/repositories/1082797601/releases/latest';
 const RELEASE_MS = 3600000;
 
 const enc = new TextEncoder();
