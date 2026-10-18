@@ -2,8 +2,6 @@
 
 [![Installs](https://img.shields.io/endpoint?url=https://esp8266-installs.allan-d68.workers.dev/badge)](https://allanbarcelos.github.io/esp8266-dns/)
 
-<p align="center"><img src="docs/esp-01.jpg" alt="ESP-01 module" width="300"><br><sub>Photo: SparkFun, CC BY 2.0</sub></p>
-
 ## 📑 Contents
 
 - [About](#-about)
@@ -39,6 +37,7 @@
 - [Log](#-log)
 - [Local build](#-local-build)
 - [Status and next steps](#️-status-and-next-steps)
+- [Device](#-device)
 - [License](#-license)
 
 ---
@@ -566,6 +565,14 @@ The TLS roots are kept readable in `ca/roots.pem` (name, expiry and SHA-256 of e
 ## 🗺️ Status and next steps
 
 What changed in the last round, how it was verified and what comes next: [docs/STATUS-AND-NEXT-STEPS.md](docs/STATUS-AND-NEXT-STEPS.md). What is worth porting from Tasmota: [docs/PORTING-FROM-TASMOTA.md](docs/PORTING-FROM-TASMOTA.md). Battery and solar panel: [docs/BATTERY-AND-SOLAR.md](docs/BATTERY-AND-SOLAR.md). Which of those items are implemented, and in which commit: [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md).
+
+---
+
+## 📟 Device
+
+The **ESP-01**: an ESP8266 with 1 MB of flash, about 80 KB of RAM, Wi-Fi and four usable pins (GPIO0, GPIO2, TX/GPIO1, RX/GPIO3) on an 8-pin header, powered at 3.3 V. The pin drawing, with what each pin can take, is on the IoT page.
+
+<p align="center"><img src="docs/esp-01.jpg" alt="ESP-01 module" width="300"><br><sub>Photo: SparkFun, CC BY 2.0</sub></p>
 
 ---
 

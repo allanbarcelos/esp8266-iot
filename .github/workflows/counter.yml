@@ -101,4 +101,5 @@ jobs:
           # The installer posts to it and the README's badge reads it
           grep -qF "$url/install" install/index.html || { echo "::error::install/index.html does not post to $url/install"; exit 1; }
           grep -qF "$url/badge" README.md || { echo "::error::the README badge does not read $url/badge"; exit 1; }
-          curl -sSf --retry 5 --retry-delay 3 --retry-all-errors "$url/badge"
+          # A new workers.dev address takes a minute or two to answer
+          curl -sSf --retry 12 --retry-delay 10 --retry-all-errors "$url/badge"
