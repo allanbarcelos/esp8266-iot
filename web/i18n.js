@@ -167,10 +167,16 @@ function QR(s) {
               '/update', 'Update', 'M21 12a9 9 0 1 1-2.6-6.4L21 8M21 3v5h-5',
               '/status', 'Status', 'M3 12h4l3-8 4 16 3-8h4',
               '/log', 'Logs', 'M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1'];
+    // With an actuator set up (data-a), its schedule under IoT, always shown
+    var a = function (u, n, d, k) {
+        h += '<a' + k + ' href=' + u + (p == u || u != '/' && !p.indexOf(u + '/') ? ' aria-current=page>' : '>') +
+            ic(d) + L(n) + '</a>';
+    };
     for (i = 0; i < ln.length; i += 3) {
         if (!ln[i]) { h += '<hr>'; i -= 2; continue; }
-        h += '<a href=' + ln[i] + (p == ln[i] || ln[i] != '/' && !p.indexOf(ln[i] + '/') ? ' aria-current=page>' : '>') +
-            ic(ln[i + 2]) + L(ln[i + 1]) + '</a>';
+        a(ln[i], ln[i + 1], ln[i + 2], '');
+        if (ln[i] == '/iot' && mn && mn.hasAttribute('data-a'))
+            a('/actuator/schedule', 'Actuator schedule', 'M12 7v5l3 2M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0', ' class=sub');
     }
     if (mn) {
         mn.setAttribute('aria-label', L('Menu'));

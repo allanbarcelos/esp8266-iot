@@ -178,6 +178,10 @@ WED	Wed	Qua	Mié	Mer
 THU	Thu	Qui	Jue	Jeu
 FRI	Fri	Sex	Vie	Ven
 SAT	Sat	Sáb	Sáb	Sam
+ACT_SCHEDULE	Actuator schedule	Agenda do atuador	Programación del actuador	Programmation de l'actionneur
+ADD	Add	Adicionar	Añadir	Ajouter
+DELETE	Delete	Excluir	Eliminar	Supprimer
+TIME	Time	Horário	Hora	Heure
 DOWNLOAD_LOG	Download the log (24 h)	Baixar o log (24 h)	Descargar el registro (24 h)	Télécharger le journal (24 h)
 LAST_CRASH	Last crash	Último travamento	Último fallo	Dernier plantage
 CHECK_NOW	Check now	Verificar agora	Comprobar ahora	Vérifier maintenant

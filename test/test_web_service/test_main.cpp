@@ -249,7 +249,7 @@ void test_authentication_required() {
     Fixture f;
     f.srv.authOk = false;
     const char* paths[] = {"/", "/status", "/log", "/log.txt", "/cloudflare", "/ntfy", "/mqtt", "/password",
-                           "/update", "/iot", "/config", "/mfa"};
+                           "/update", "/iot", "/config", "/mfa", "/actuator/schedule"};
     for (const char* p : paths) {
         f.get(p);
         TEST_ASSERT_EQUAL(302, f.srv.code);
@@ -258,7 +258,7 @@ void test_authentication_required() {
     }
     const char* posts[] = {"/save", "/cloudflare/save", "/cloudflare/ddns", "/cloudflare/clear", "/remote/save", "/remote/off", "/ntfy/save", "/mqtt/save", "/password/save",
                            "/update/auto", "/update/check", "/update/install", "/iot/save", "/iot/cmd",
-                           "/iot/token", "/iot/clear", "/config/save", "/mfa", "/mfa/reset"};
+                           "/iot/token", "/iot/clear", "/config/save", "/mfa", "/mfa/reset", "/actuator/schedule"};
     for (const char* p : posts) {
         f.post(p);
         TEST_ASSERT_EQUAL(302, f.srv.code);
@@ -335,7 +335,8 @@ void test_invalid_csrf_rejected_on_every_post() {
     Fixture f;
     const char* posts[] = {"/save", "/cloudflare/save", "/cloudflare/ddns", "/cloudflare/clear", "/remote/save", "/remote/off", "/ntfy/save", "/mqtt/save", "/password/save",
                            "/update/auto", "/update/check", "/update/install", "/iot/save", "/iot/cmd",
-                           "/iot/token", "/iot/clear", "/config/save", "/login", "/logout", "/mfa/reset"};
+                           "/iot/token", "/iot/clear", "/config/save", "/login", "/logout", "/mfa/reset",
+                           "/actuator/schedule"};
     for (const char* p : posts) {
         f.srv.request(HTTP_POST, p, {{"_csrf", "00000000deadbeef"}});
         TEST_ASSERT_EQUAL(403, f.srv.code);
@@ -2733,6 +2734,58 @@ void test_ntfy_page_without_command_service() {
     TEST_ASSERT_FALSE(contains(f.out(), "Commands over ntfy"));
 }
 
+// The actuator's schedule: a child of IoT in the menu while an actuator is
+// set up; the page carries the list (data-s) for iot.js, which sends the
+// whole list back. Every line valid, or nothing changes.
+void test_actuator_schedule() {
+    Fixture f;
+    f.get("/");
+    TEST_ASSERT_TRUE(contains(f.out(), "<nav id='mn'>"));
+    strlcpy(cfg.iot.actuator, "relay", sizeof(cfg.iot.actuator));
+    cfg.iot.actuatorPin = 0;
+    f.iot.begin();
+    f.get("/");
+    TEST_ASSERT_TRUE(contains(f.out(), "<nav id='mn' data-a>"));
+
+    f.get("/actuator/schedule");
+    TEST_ASSERT_EQUAL(200, f.srv.code);
+    TEST_ASSERT_TRUE(contains(f.out(), "<h1>Actuator schedule</h1>"));
+    TEST_ASSERT_TRUE(contains(f.out(), "<form action='/actuator/schedule' method='POST' id='sf'>"));
+    TEST_ASSERT_TRUE(contains(f.out(), "<input type='hidden' name='s'></form><div id='sc' data-s=''></div>"));
+    TEST_ASSERT_TRUE(contains(f.out(), "<script src='/iot.js?v="));
+
+    f.post("/actuator/schedule", {{"s", "10 540 on\n10 660 off\n64 600 pulse 5"}});
+    TEST_ASSERT_EQUAL(303, f.srv.code);
+    TEST_ASSERT_EQUAL_STRING("/actuator/schedule", f.srv.headers["Location"].c_str());
+    TEST_ASSERT_EQUAL_STRING("10 540 on\n10 660 off\n64 600 pulse 5", MockFS::files["/schedule"].c_str());
+    f.get("/actuator/schedule");
+    TEST_ASSERT_TRUE(contains(f.out(), "data-s='10 540 on\n10 660 off\n64 600 pulse 5'>"));
+
+    // Not a line, too long, or no file system: refused, the list stays
+    const char* bad[] = {"10 540 on\nbad", "0 540 on", "10 540 on\n\n10 660 off"};
+    for (const char* b : bad) {
+        f.post("/actuator/schedule", {{"s", b}});
+        TEST_ASSERT_EQUAL_MESSAGE(400, f.srv.code, b);
+        TEST_ASSERT_TRUE(contains(f.out(), "Invalid value"));
+    }
+    std::string big;
+    while (big.size() <= IoTService::SCHEDULE_MAX) big += "10 540 on\n";
+    big += "10 540 on";
+    f.post("/actuator/schedule", {{"s", big}});
+    TEST_ASSERT_EQUAL(400, f.srv.code);
+    MockFS::failWriteOpen = true;
+    f.post("/actuator/schedule", {{"s", "1 0 off"}});
+    TEST_ASSERT_EQUAL(400, f.srv.code);
+    TEST_ASSERT_TRUE(contains(f.out(), "Could not save"));
+    MockFS::failWriteOpen = false;
+    TEST_ASSERT_EQUAL_STRING("10 540 on\n10 660 off\n64 600 pulse 5", MockFS::files["/schedule"].c_str());
+
+    // Deleting the last one leaves an empty list
+    f.post("/actuator/schedule", {{"s", ""}});
+    TEST_ASSERT_EQUAL(303, f.srv.code);
+    TEST_ASSERT_EQUAL_STRING("", MockFS::files["/schedule"].c_str());
+}
+
 // Reconfigure asks twice: its own page, then the browser (data-q); with a
 // password set, the current password and a code confirm it
 void test_iot_remove_asks_for_confirmation() {
@@ -2743,6 +2796,7 @@ void test_iot_remove_asks_for_confirmation() {
     f.post("/iot/cmd", {{"cmd", "on"}});
     TEST_ASSERT_TRUE(f.iot.actuatorOn());
     TEST_ASSERT_TRUE(MockFS::files.count("/iot.state") == 1);
+    MockFS::put("/schedule", "10 540 on\n");
     f.get("/iot");
     TEST_ASSERT_TRUE(contains(f.out(),
         "<form action='/iot/clear' method='POST'>"));
@@ -2789,6 +2843,7 @@ void test_iot_remove_asks_for_confirmation() {
     TEST_ASSERT_EQUAL_STRING("", cfg.api_token);
     TEST_ASSERT_FALSE(contains(MockFS::files["/config.json"], token.c_str()));
     TEST_ASSERT_TRUE(MockFS::files.count("/iot.state") == 0);
+    TEST_ASSERT_TRUE(MockFS::files.count("/schedule") == 0);   // the actuator's schedule too
     TEST_ASSERT_FALSE(f.iot.hasSensor());
     TEST_ASSERT_FALSE(f.iot.hasActuator());
     TEST_ASSERT_EQUAL(HIGH, mock::pinOut[0]);  // relay active low: off
@@ -3886,6 +3941,7 @@ int main() {
     RUN_TEST(test_ntfy_commands_page_and_validation);
     RUN_TEST(test_ntfy_page_without_command_service);
     RUN_TEST(test_iot_remove_asks_for_confirmation);
+    RUN_TEST(test_actuator_schedule);
     RUN_TEST(test_iot_remove_without_clock);
     RUN_TEST(test_iot_remove_in_setup_mode);
     RUN_TEST(test_iot_remove_write_fails);

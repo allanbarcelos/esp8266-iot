@@ -35,9 +35,12 @@ class El {
   getAttribute(n) { return n in this.attrs ? this.attrs[n] : null; }
   setAttribute(n, v) { this.attrs[n] = String(v); }
   closest(sel) {
-    if (sel === '[data-c]') return 'data-c' in this.attrs ? this : null;
+    const m = sel.match(/^\[([\w-]+)\]$/);
+    if (m) return m[1] in this.attrs ? this : null;
     return sel === '#' + this.id ? this : null;
   }
+  // The checked boxes it wrote (the schedule's days)
+  querySelectorAll() { return (this.dom.boxes || []).filter((b) => b.checked); }
   addEventListener(t, f) { (this.listeners[t] ||= []).push(f); }
   fire(t, target = this) { for (const f of this.listeners[t] || []) f({ target }); }
   set innerHTML(h) {
@@ -47,6 +50,7 @@ class El {
       const attrs = {};
       for (const a of m[2].matchAll(/([\w-]+)(?:='([^']*)')?/g)) attrs[a[1]] = a[2] ?? '';
       if (attrs.id) this.dom.ids[attrs.id] = new El(this.dom, m[1], attrs);
+      else if (attrs.type === 'checkbox') (this.dom.boxes ||= []).push(new El(this.dom, m[1], attrs));
     }
   }
   get innerHTML() { return this._html; }
@@ -95,7 +99,7 @@ function parseForm(dom, h) {
   }
 }
 
-function page({ D = {}, R = [NaN, 0], home = false, form = null, reply } = {}) {
+function page({ D = {}, R = [NaN, 0], home = false, form = null, reply, schedule } = {}) {
   const dom = { ids: {}, names: {}, inputs: [] };
   const calls = [];
   const timers = [];
@@ -129,6 +133,14 @@ function page({ D = {}, R = [NaN, 0], home = false, form = null, reply } = {}) {
     },
   };
   if (home) dom.ids.io = new El(dom, 'div', { id: 'io' });
+  if (schedule !== undefined) {
+    dom.ids.sc = new El(dom, 'div', { id: 'sc', 'data-s': schedule });
+    const sf = new El(dom, 'form', { id: 'sf' });
+    sf.sent = [];
+    sf.submit = () => sf.sent.push(dom.names.s.value);
+    dom.ids.sf = sf;
+    dom.names.s = new El(dom, 'input', { name: 's' });
+  }
   if (form) {
     ctx.CF = form;
     ctx.SL = { ds18b20: 'Temperature (DS18B20)', dht22: 'Temperature and humidity (DHT22)', aht20: 'AHT20',
@@ -616,4 +628,71 @@ test('form: the parts for each actuator, the wiring hints, and every change redr
   p.dom.names.rule.checked = false;
   p.dom.names.rule.fire('input');
   assert.equal(p.$('rs').textContent, 'No rule: the actuator only obeys commands.');
+});
+
+// ── The actuator's schedule ──────────────────────────────────────────────────
+
+const H = 3600000;   // an hour, as a time field's valueAsNumber
+
+test('schedule: the list from the device, each entry in words', () => {
+  const p = page({ D: { c: 1 }, schedule: '10 540 on\n64 600 pulse 5\n1 0 jump\n' });
+  const h = p.$('sc').innerHTML;
+  assert.match(h, /<section class='c'><div class='r'><span>Mon Wed · 09:00<\/span><b>Turn on  <button class='b2' data-i='0' aria-label='Delete'>×<\/button><\/b><\/div>/);
+  assert.match(h, /<span>Sat · 10:00<\/span><b>Pulse 5 <button class='b2' data-i='1'/);
+  assert.match(h, /<span>Sun · 00:00<\/span><b>jump  <button/);        // a command it does not name
+  assert.match(h, /<fieldset class='dw'><label><input type='checkbox' value='1'>Sun<\/label>/);
+  assert.match(h, /<option value='0'>Turn on<\/option><option value='1'>Turn off<\/option><option value='2'>Pulse<\/option><\/select>/);
+  assert.doesNotMatch(h, /Back to automatic/);
+  // None yet: only the form
+  const q = page({ D: { c: 1 }, schedule: '' });
+  assert.doesNotMatch(q.$('sc').innerHTML, /<section/);
+});
+
+test('schedule: the actions follow the actuator, auto with a rule', () => {
+  const servo = page({ D: { c: 3 }, schedule: '' }).$('sc').innerHTML;
+  assert.match(servo, /<option value='0'>Open<\/option><option value='1'>Close<\/option><option value='2'>Angle<\/option><\/select>/);
+  const fan = page({ D: { c: 2 }, R: [28, 0], schedule: '' }).$('sc').innerHTML;
+  assert.match(fan, />Turn off<\/option><option value='2'>Level<\/option><option value='3'>Back to automatic<\/option>/);
+  const strip = page({ D: { c: 4 }, schedule: '' }).$('sc').innerHTML;
+  assert.match(strip, /<option value='2'>Brightness<\/option><option value='3'>Color<\/option><\/select>/);
+});
+
+test('schedule: add an entry, the value field when the action takes one', () => {
+  const p = page({ D: { c: 4 }, schedule: '10 540 on' });
+  const C = p.$('sc'), sv = p.$('sv');
+  p.$('sa').value = 3;                                  // Color
+  C.onchange();
+  assert.equal(sv.hidden, false);
+  assert.equal(sv.type, 'color');
+  p.$('sa').value = 2;                                  // Brightness
+  C.onchange();
+  assert.equal(sv.type, 'number');
+  p.$('sa').value = 0;                                  // Turn on: no value
+  C.onchange();
+  assert.equal(sv.hidden, true);
+
+  const add = { target: p.$('sd') };
+  p.$('st').valueAsNumber = NaN;
+  C.onclick(add);                                       // no day, no time: nothing
+  p.dom.boxes[6].checked = true;                        // Saturday
+  C.onclick(add);                                       // a day, no time: nothing
+  assert.deepEqual(p.$('sf').sent, []);
+  p.$('st').valueAsNumber = 22.5 * H;
+  p.$('sa').value = 3;
+  sv.value = '#ff8800';
+  C.onclick(add);
+  assert.deepEqual(p.$('sf').sent, ['10 540 on\n64 1350 color #ff8800']);
+  p.$('sa').value = 1;                                  // Turn off: the field's value is not sent
+  C.onclick(add);
+  assert.equal(p.$('sf').sent[1], '10 540 on\n64 1350 color #ff8800\n64 1350 off');
+});
+
+test('schedule: × deletes an entry; a click elsewhere does nothing', () => {
+  const p = page({ D: { c: 1 }, schedule: '10 540 on\n10 660 off' });
+  const C = p.$('sc');
+  p.$('sa').value = 0;                                  // a browser's select has a value
+  C.onclick({ target: new El(p.dom, 'p') });
+  assert.deepEqual(p.$('sf').sent, []);
+  C.onclick({ target: new El(p.dom, 'button', { 'data-i': '0' }) });
+  assert.deepEqual(p.$('sf').sent, ['10 660 off']);
 });

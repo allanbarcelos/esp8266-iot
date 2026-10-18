@@ -1153,6 +1153,77 @@ static time_t fakeClock() { return clockNow; }
 static const time_t DAY0 = 1704067200;   // 01/01/2024 00:00 UTC
 static void at(int h, int m) { clockNow = DAY0 + h * 3600 + m * 60; }
 
+// A schedule line: "days minute command", days a mask (bit 0 = Sunday)
+void test_schedule_line() {
+    char ok[] = "10 540 level 60";
+    uint8_t d;
+    uint16_t m;
+    const char* c;
+    TEST_ASSERT_TRUE(IoTService::scheduleLine(ok, d, m, c));
+    TEST_ASSERT_EQUAL(10, d);
+    TEST_ASSERT_EQUAL(540, m);
+    TEST_ASSERT_EQUAL_STRING("level 60", c);
+    const char* bad[] = {"0 540 on", "128 540 on", "10 1440 on", "10 540 jump", "10540 on", "x 540 on",
+                         "10 x on", "10 540", "123456 1 on", "10 99999 on", ""};
+    for (const char* b : bad) TEST_ASSERT_FALSE_MESSAGE(IoTService::scheduleLine(b, d, m, c), b);
+}
+
+// Each entry runs as a command once, in its minute and on its days, local
+// time, with the clock set; a line that is not one is skipped
+void test_schedule_runs() {
+    actuator("relay", 0);
+    cfg.tz = 0;
+    IoTService noClock{cfg, logger};
+    noClock.begin();
+    MockFS::put("/schedule", "10 540 on\n");
+    noClock.tick(1);                                       // no clock: nothing
+    TEST_ASSERT_FALSE(noClock.actuatorOn());
+
+    Clock clock{fakeClock};
+    IoTService iot{cfg, logger, &clock};
+    iot.begin();
+    // Mon and Wed (bits 1, 3) 09:00 on, 11:00 off; Saturday (bit 6) 10:00 on
+    MockFS::put("/schedule", "10 540 on\n10 660 off\nnot a line\n" + std::string(40, '1') + "\n64 600 on");
+    clockNow = 1000;                                       // 1970
+    iot.tick(1);
+    TEST_ASSERT_FALSE(iot.actuatorOn());
+    at(8, 59);                                             // Monday
+    iot.tick(2);
+    TEST_ASSERT_FALSE(iot.actuatorOn());
+    at(9, 0);
+    iot.tick(3);
+    TEST_ASSERT_TRUE(iot.actuatorOn());
+    TEST_ASSERT_TRUE(logHas(logger, "Schedule: on"));
+    iot.command("off", 4);
+    iot.tick(5);                                           // the same minute: once
+    TEST_ASSERT_FALSE(iot.actuatorOn());
+    iot.command("on", 6);
+    at(11, 0);
+    iot.tick(7);
+    TEST_ASSERT_FALSE(iot.actuatorOn());
+    at(24 + 9, 0);                                         // Tuesday: not one of its days
+    iot.tick(8);
+    TEST_ASSERT_FALSE(iot.actuatorOn());
+    at(5 * 24 + 10, 0);                                    // Saturday
+    iot.tick(9);
+    TEST_ASSERT_TRUE(iot.actuatorOn());
+
+    cfg.tz = -180;                                         // local time: 09:00 is 12:00 UTC
+    iot.command("off", 10);
+    at(2 * 24 + 9, 0);                                     // Wednesday 06:00 local
+    iot.tick(11);
+    TEST_ASSERT_FALSE(iot.actuatorOn());
+    at(2 * 24 + 12, 0);
+    iot.tick(12);
+    TEST_ASSERT_TRUE(iot.actuatorOn());
+
+    MockFS::files.erase("/schedule");                      // no schedule
+    at(2 * 24 + 14, 0);
+    iot.tick(13);
+    TEST_ASSERT_TRUE(iot.actuatorOn());
+    cfg.tz = 0;
+}
+
 void test_local_time_and_window() {
     uint16_t m = 0;
     IoTService none{cfg, logger};
@@ -1776,6 +1847,8 @@ int main() {
     RUN_TEST(test_units_temperature_in_fahrenheit);
     RUN_TEST(test_units_tank_level_and_volume);
     RUN_TEST(test_units_flow_and_total);
+    RUN_TEST(test_schedule_line);
+    RUN_TEST(test_schedule_runs);
     RUN_TEST(test_local_time_and_window);
     RUN_TEST(test_rule_only_inside_window);
     RUN_TEST(test_outside_window_without_reading);

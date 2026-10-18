@@ -364,6 +364,52 @@ function q() {
         .catch(function () {});
 }
 
+// ── The actuator's schedule: the list from the device (data-s), one line
+// per entry, "days minute command" (days a mask, bit 0 = Sunday); Add and
+// × send the whole list back (s), the device checks it ─────────────────────
+
+var DY = [L('Sun'), L('Mon'), L('Tue'), L('Wed'), L('Thu'), L('Fri'), L('Sat')];
+
+function sched(C) {
+    var c = D.c, l = C.getAttribute('data-s').split('\n').filter(String), h = '', i, j, s,
+        A = c == 3 ? [['open', L('Open')], ['close', L('Close')], ['angle ', L('Angle')]] :
+            [['on', L('Turn on')], ['off', L('Turn off')]];
+    // The actions for this actuator; one ending in a space takes a value
+    if (c == 1) A.push(['pulse ', L('Pulse')]);
+    if (c == 2 || c == 4) A.push(['level ', c == 2 ? L('Level') : L('Brightness')]);
+    if (c == 4) A.push(['color ', L('Color')]);
+    if (R[0] == R[0]) A.push(['auto', L('Back to automatic')]);
+    for (i = 0; i < l.length; i++) {
+        s = l[i].split(' ');
+        h += "<div class='r'><span>";
+        for (j = 0; j < 7; j++) if (s[0] >> j & 1) h += DY[j] + ' ';
+        for (j = A.length; j-- && s[2] != A[j][0].trim();) {}
+        h += '· ' + new Date(s[1] * 6e4).toISOString().slice(11, 16) + '</span><b>' + (j < 0 ? s[2] : A[j][1]) + ' ' +
+            (s[3] || '') + " <button class='b2' data-i='" + i + "' aria-label='" + L('Delete') + "'>×</button></b></div>";
+    }
+    h = (h && "<section class='c'>" + h + '</section>') + "<fieldset class='dw'>";
+    for (j = 0; j < 7; j++) h += "<label><input type='checkbox' value='" + (1 << j) + "'>" + DY[j] + '</label>';
+    h += '</fieldset>' + lb(L('Time'), "<input type='time' id='st'>") + "<select id='sa'>";
+    for (j = 0; j < A.length; j++) h += op(j, A[j][1]);
+    C.innerHTML = h + "</select><input id='sv' hidden><button class='b2' id='sd'>" + L('Add') + '</button>';
+    C.onchange = function () {
+        var a = A[$('sa').value][0];
+        $('sv').hidden = a.slice(-1) != ' ';
+        $('sv').type = a == 'color ' ? 'color' : 'number';
+    };
+    C.onclick = function (e) {
+        var b = e.target.closest('[data-i]'), d = 0, t = dv($('st').valueAsNumber, 6e4), a = A[$('sa').value][0];
+        if (b) l.splice(b.getAttribute('data-i'), 1);
+        else if (e.target.id == 'sd') {
+            C.querySelectorAll('.dw :checked').forEach(function (x) { d += +x.value; });
+            if (!d || t != t) return;
+            l.push(d + ' ' + t + ' ' + a + (a.slice(-1) == ' ' ? $('sv').value : ''));
+        } else return;
+        V('s').value = l.join('\n');
+        $('sf').submit();
+    };
+}
+
 // Home draws the card once, from what is set up; the readings come every
 // 5 s. A tab out of sight does not ask: each reading is a request (and,
 // through the remote access relay, one in its queue).
@@ -382,3 +428,4 @@ if ($('fm')) {
     f();
 }
 if ($('io')) home($('io'));
+if ($('sc')) sched($('sc'));

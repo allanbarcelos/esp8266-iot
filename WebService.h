@@ -305,6 +305,7 @@ private:
     static constexpr char P_IOT_CMD[] PROGMEM = "/iot/cmd";
     static constexpr char P_IOT_TOKEN[] PROGMEM = "/iot/token";
     static constexpr char P_IOT_CLEAR[] PROGMEM = "/iot/clear";
+    static constexpr char P_SCHEDULE[] PROGMEM = "/actuator/schedule";
     static constexpr char P_API_CMD[] PROGMEM = "/api/cmd";
     static constexpr char P_UPDATE_AUTO[] PROGMEM = "/update/auto";
     static constexpr char P_UPDATE_CHECK[] PROGMEM = "/update/check";
@@ -728,7 +729,8 @@ private:
         // there drops a replacement and keeps the current key.
         bool session = _sessionOk();
         bool menu = _cfg.webpss.length() ? session && _session == 2 : _wifi.inConfigMode();
-        if (menu) _p(H("<nav id='mn'>"));
+        // data-a: an actuator is set up, the menu shows its schedule
+        if (menu) _p(_iot.hasActuator() ? H("<nav id='mn' data-a>") : H("<nav id='mn'>"));
         else if (session) _p(H("<nav>"));
         if (session) {
             _p(H("<form class='out' action='/logout' method='POST'>"));
@@ -2640,9 +2642,64 @@ private:
             return;
         }
         LittleFS.remove(IoTState::PATH);
+        LittleFS.remove(IoTService::SCHEDULE_PATH);
         _iot.begin();
         _log.log(LOGP("IoT: sensor and actuator removed"));
         _savedPage(H(L_IOT_CLEARED), P_IOT);
+    }
+
+    // The actuator's schedule: iot.js draws the list from the file (data-s)
+    // and sends the whole list back in s, to add or delete an entry
+    void _handleSchedule() {
+        if (!_guard()) return;
+        _pageBegin();
+        _title(H(L_ACT_SCHEDULE));
+        _form(P_SCHEDULE, H(" id='sf'"));
+        _p(H("<input type='hidden' name='s'></form><div id='sc' data-s='"));
+        File f = LittleFS.open(IoTService::SCHEDULE_PATH, "r");
+        if (f) {
+            char b[65];
+            for (size_t n; (n = f.readBytes(b, sizeof(b) - 1)) > 0;) {
+                b[n] = '\0';
+                _e(b);
+            }
+            f.close();
+        }
+        _p(H("'></div>"));
+        _pageFoot();
+        _iotScript();
+    }
+
+    // Every line valid, or nothing changes
+    void _handleScheduleSave() {
+        if (!_guard()) return;
+        if (!_checkCSRF()) return;
+        String s = _server.arg("s");
+        bool ok = s.length() <= IoTService::SCHEDULE_MAX;
+        // Each line checked in place: its '\n' a '\0' for a moment
+        // cppcheck-suppress constVariablePointer ; e, found from p, writes the line's end
+        for (char *p = const_cast<char*>(s.c_str()), *e; ok && *p; p = e + 1) {
+            e = strchr(p, '\n');
+            if (e) *e = '\0';
+            uint8_t days;
+            uint16_t minute;
+            const char* cmd;
+            ok = IoTService::scheduleLine(p, days, minute, cmd);
+            if (!e) break;
+            *e = '\n';
+        }
+        if (!ok) {
+            _errorPage(S_INVALID, P_SCHEDULE);
+            return;
+        }
+        File f = LittleFS.open(IoTService::SCHEDULE_PATH, "w");
+        if (!f) {
+            _errorPage(S_SAVE_FAILED, P_SCHEDULE);
+            return;
+        }
+        f.write(reinterpret_cast<const uint8_t*>(s.c_str()), s.length());
+        f.close();
+        _go("/actuator/schedule");
     }
 
     // Token and examples to integrate without internet (scripts, Home Assistant)
@@ -2705,6 +2762,8 @@ inline const WebService::Route WebService::ROUTES[] PROGMEM = {
     {HttpServer::POST, P_IOT_CMD, [](WebService& w) { w._handleIotCmd(); }},
     {HttpServer::POST, P_IOT_TOKEN, [](WebService& w) { w._handleIotToken(); }},
     {HttpServer::POST, P_IOT_CLEAR, [](WebService& w) { w._handleIotClear(); }},
+    {HttpServer::GET, P_SCHEDULE, [](WebService& w) { w._handleSchedule(); }},
+    {HttpServer::POST, P_SCHEDULE, [](WebService& w) { w._handleScheduleSave(); }},
     {HttpServer::POST, P_API_CMD, [](WebService& w) { w._handleApiCmd(); }},
     {HttpServer::POST, P_UPDATE_AUTO, [](WebService& w) { w._handleUpdateAuto(); }},
     {HttpServer::POST, P_UPDATE_CHECK, [](WebService& w) { w._handleUpdateCheck(); }},

@@ -96,6 +96,7 @@ html.o body::after { content: ''; position: fixed; inset: 0; z-index: 8; backgro
     font-size: 14px;
 }
 #mn a:hover, #mn form.out button:hover { background: var(--bg); color: var(--fg); }
+#mn a.sub { padding-left: 32px; font-size: 13px; }   /* a page under the one above (the actuator's schedule) */
 #mn a[aria-current] { background: var(--bg); color: var(--fg); box-shadow: inset 3px 0 var(--ok); }
 #mn hr { width: 100%; margin: 6px 0; border: 0; border-top: 1px solid var(--ln); }
 #mn form.out { margin-top: auto; }

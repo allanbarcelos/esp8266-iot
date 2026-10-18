@@ -141,6 +141,7 @@ public:
     void tick(unsigned long now) {
         if (_sensor >= 0) _tickSensor(now);
         if (_act < 0) return;
+        _schedule(now);
         bool open = inHours();
         if (open != _open) {
             _open = open;
@@ -305,6 +306,33 @@ public:
         _urgent = false;
     }
 
+    // The actuator's schedule: one line per entry, "days minute command" (days
+    // a mask, bit 0 = Sunday; the minute of the day, local time; a command
+    // as the panel sends it). Kept by WebService; any number of entries.
+    static constexpr const char* SCHEDULE_PATH = "/schedule";
+    static constexpr size_t      SCHEDULE_MAX  = 1024;   // the file, in bytes
+
+    // One line into its parts (the command stays in the line); false if it is
+    // not one
+    static bool scheduleLine(const char* p, uint8_t& days, uint16_t& minute, const char*& cmd) {
+        uint32_t d, m;
+        p = _digits(p, d);
+        if (*p++ != ' ' || !d || d > 127) return false;
+        p = _digits(p, m);
+        if (*p++ != ' ' || m >= 1440) return false;
+        iot::Command c;
+        if (!iot::parseCommand(p, c)) return false;
+        days = (uint8_t)d;
+        minute = (uint16_t)m;
+        cmd = p;
+        return true;
+    }
+
+    static const char* _digits(const char* p, uint32_t& v) {
+        for (v = 0; *p >= '0' && *p <= '9' && v < 10000; p++) v = v * 10 + (uint32_t)(*p - '0');
+        return p;
+    }
+
     // Pulse count. The ISR only increments.
     static void IRAM_ATTR onPulse() { _pulses++; }
 
@@ -350,6 +378,7 @@ private:
     bool    _pulsing;
     bool    _haveRule;      // the rule has decided at least once
     bool    _open;          // inside the time window (last tick)
+    uint32_t _schedAt = 0;  // the local minute (since 1970) the schedule last ran
     bool    _ruleOn;
     uint8_t _ruleLevel;
     uint8_t _level;
@@ -757,6 +786,33 @@ private:
             data[i / 8] = (uint8_t)((data[i / 8] << 1) | bit);
         }
         return true;
+    }
+
+    // Once per local minute, with the clock set: the entries of that minute
+    // and day run as commands (a TLS handshake blocks the loop for seconds,
+    // never a whole minute)
+    void _schedule(unsigned long now) {
+        if (!_clock || !_clock->synced()) return;
+        uint32_t m = ((uint32_t)_clock->now() + (int32_t)_cfg.tz * 60) / 60;
+        if (m == _schedAt) return;
+        _schedAt = m;
+        File f = LittleFS.open(SCHEDULE_PATH, "r");
+        if (!f) return;
+        char line[32];
+        for (int c = 0; c >= 0;) {
+            size_t n = 0;
+            while ((c = f.read()) >= 0 && c != '\n')
+                if (n < sizeof(line) - 1) line[n++] = (char)c;
+            line[n] = '\0';
+            uint8_t days;
+            uint16_t minute;
+            const char* cmd;
+            if (!scheduleLine(line, days, minute, cmd)) continue;
+            if (m % 1440 != minute || !(days >> ((m / 1440 + 4) % 7) & 1)) continue;
+            _log.log(LOGP("Schedule: %s"), cmd);
+            command(cmd, now);
+        }
+        f.close();
     }
 
     // Phase 1: pin LOW; the next tick that lands in the window reads the bits.
