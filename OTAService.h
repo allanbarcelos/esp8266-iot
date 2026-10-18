@@ -542,9 +542,12 @@ private:
             _checkFailed(now);
             return;
         }
+        // By the repository's number, not its name: a renamed repository
+        // answers its old name with a 301, and this check takes only 200.
+        // (The download follows redirects: its github.com path may keep
+        // the old name.)
         static const char host[] = "api.github.com";
-        static const char path[] =
-            "/repos/allanbarcelos/esp8266-dns/releases/latest";
+        static const char path[] = "/repositories/1082797601/releases/latest";
         if (!_prepareTls(host, true)) {
             _note(Report::Failed, T_NO_TLS);
             _log.log(T_NO_TLS_LOG);

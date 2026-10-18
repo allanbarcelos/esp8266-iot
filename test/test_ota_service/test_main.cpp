@@ -84,7 +84,9 @@ void test_check_after_interval() {
     f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_EQUAL(1, (int)MockHTTP::calledURLs.size());
-    TEST_ASSERT_TRUE(contains(MockHTTP::calledURLs[0], "releases/latest"));
+    // By the repository's number: it survives a rename (the name answers 301)
+    TEST_ASSERT_EQUAL_STRING("https://api.github.com/repositories/1082797601/releases/latest",
+                             MockHTTP::calledURLs[0].c_str());
     TEST_ASSERT_FALSE(f.ota.inProgress());
 }
 

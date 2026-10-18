@@ -103,7 +103,7 @@ The firmware asks `api.github.com/repos/allanbarcelos/esp8266-dns/releases/lates
 
 Safe order:
 
-1. Release a firmware that asks for the version by the repository's number (`/repositories/<id>/releases/latest`). That address survives any rename.
+1. Release a firmware that asks for the version by the repository's number (`/repositories/1082797601/releases/latest`). That address survives any rename. **Done** (firmware and relay Worker); the download keeps the github.com path by name, which redirects.
 2. Wait for the devices to take that update.
 3. Rename the repository, and update the old name where it is left: `OTAService.h`, the MQTT discovery (`mf` and `o.name`), the sketch name `esp8266-dns.ino` (CI copies `build/esp8266-dns.ino.bin` and reads its `.map`), the matching tests, and the installer links in the README, [HARDWARE-TEST.md](HARDWARE-TEST.md) and `install/index.html`.
 
