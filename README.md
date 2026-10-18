@@ -6,6 +6,7 @@
 
 - [About](#-about)
 - [Features](#-features)
+- [Screenshots](#-screenshots)
 - [Supported modules](#-supported-modules)
 - [Architecture](#-architecture)
 - [First use](#-first-use)
@@ -80,6 +81,23 @@ It works without internet (setup access point, local panel and API, the sensor a
 | **Status** | Memory, network turn, slowest loop, stack, flash, Wi-Fi, last crash |
 | **Setup mode** | An access point with a per-device password for the first configuration |
 | **Web installer** | Flashes an ESP-01 from Chrome or Edge, no tools to install ([installer](https://allanbarcelos.github.io/esp8266-iot/)); finished installs are counted on the badge above |
+
+## 📸 Screenshots
+
+The panel as the device serves it (sample data): Home with the sensor's gauges and the actuator's controls, on a computer and on a phone.
+
+<p align="center"><img src="docs/screenshots/home-desktop.png" alt="Home on a computer: temperature and humidity gauges, the fan in automatic mode" width="820"></p>
+
+<p align="center">
+  <img src="docs/screenshots/home-phone.png" alt="Home on a phone" width="260">
+  <img src="docs/screenshots/tank-phone.png" alt="A water tank's level and its pump, on a phone" width="260">
+  <img src="docs/screenshots/settings-phone.png" alt="Settings on a phone: time zone, language, scheduled restart" width="260">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/status-desktop.png" alt="Status: system, memory and flash" width="405">
+  <img src="docs/screenshots/log-desktop.png" alt="The log, dated, with its download" width="405">
+</p>
 
 ## 🧱 Supported modules
 
