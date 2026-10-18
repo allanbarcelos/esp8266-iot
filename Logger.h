@@ -7,6 +7,16 @@
 #include <stdarg.h>
 #include "Clock.h"
 #include "LogPairs.h"
+#include "HtmlPack.h"
+
+// A log format packed by the compiler with LogPairs.h, where PSTR would go:
+// log() expands it (a plain PGM_P, ASCII, expands to itself)
+#define LOGP(s)                                                            \
+    (__extension__({                                                       \
+        static constexpr html::Buf _lb = html::encode(s, LOG_PAIRS, LOG_PAIR_COUNT); \
+        HTML_STORE_(_lb, _ls);                                             \
+        (PGM_P)HTML_AT_(_lb, _ls);                                         \
+    }))
 
 #define LOG_LINE_SIZE 128
 
@@ -34,19 +44,24 @@ public:
 
     void setClock(const Clock* clock) { _clock = clock; }
 
-    // fmt lives in flash (PSTR): on the ESP8266 plain string literals take
-    // RAM, and the heap is what the OTA TLS needs. vsnprintf_P reads RAM too.
+    // fmt lives in flash, packed (LOGP) or as a PSTR: on the ESP8266 plain
+    // string literals take RAM, and the heap is what the OTA TLS needs
     void log(PGM_P fmt, ...) {
         char msg[LOG_LINE_SIZE];
-        va_list args;
-        va_start(args, fmt);
-        vsnprintf_P(msg, sizeof(msg), fmt, args);
-        va_end(args);
         {
-            char line[LOG_LINE_SIZE + 24];   // "[4294967s] " and the text
-            snprintf_P(line, sizeof(line), PSTR("[%lus] %s"), millis() / 1000, msg);
-            Serial.println(line);
+            char f[LOG_LINE_SIZE];
+            size_t n = 0;
+            for (uint8_t c; (c = pgm_read_byte(fmt)); fmt++) _expand(c, f, n);
+            f[n] = '\0';
+            va_list args;
+            va_start(args, fmt);
+            vsnprintf(msg, sizeof(msg), f, args);
+            va_end(args);
         }
+        char head[24];   // "[<seconds>s] "
+        snprintf_P(head, sizeof(head), PSTR("[%lus] "), millis() / 1000);
+        Serial.print(head);
+        Serial.println(msg);
 
         // Bytes from 0x80 up are the pairs: a name in UTF-8 goes as '?'
         size_t n = 0;

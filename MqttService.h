@@ -67,19 +67,19 @@ public:
             if (_state == ST_IDLE) return;
         }
         if (!_net.connected()) {
-            _log.log(PSTR("MQTT: connection closed"));
+            _log.log(LOGP("MQTT: connection closed"));
             _fail(now);
             return;
         }
         if (_state == ST_CONNECTING) {
             if (now - _lastIn > CONNACK_MS) {
-                _log.log(PSTR("MQTT: broker not answering"));
+                _log.log(LOGP("MQTT: broker not answering"));
                 _fail(now);
             }
             return;
         }
         if (now - _lastIn > KEEPALIVE_S * 1500UL) {   // 1.5 × keepalive with nothing
-            _log.log(PSTR("MQTT: broker stalled"));
+            _log.log(LOGP("MQTT: broker stalled"));
             _fail(now);
             return;
         }
@@ -181,13 +181,13 @@ private:
         char host[sizeof(_cfg.mqtt_host)];
         uint16_t port;
         if (!parseBroker(_cfg.mqtt_host, host, sizeof(host), port)) {
-            _log.log(PSTR("MQTT: invalid broker"));
+            _log.log(LOGP("MQTT: invalid broker"));
             _fail(now);
             return;
         }
         _net.setTimeout(CONNECT_MS);
         if (!_net.connect(host, port)) {
-            _log.log(PSTR("MQTT: cannot connect to %s"), host);
+            _log.log(LOGP("MQTT: cannot connect to %s"), host);
             _fail(now);
             return;
         }
@@ -218,7 +218,7 @@ private:
         _state = ST_UP;
         _backoff = BACKOFF_MIN_S;
         _waiting = false;
-        _log.log(PSTR("MQTT: connected"));
+        _log.log(LOGP("MQTT: connected"));
         _publish("avail", "online", 6, now);
 
         // SUBSCRIBE (id 1, QoS 0) to the command topic
@@ -298,7 +298,7 @@ private:
             _rxShift += 7;
             if (c & 0x80) {
                 if (_rxShift < 28) return;
-                _log.log(PSTR("MQTT: invalid packet"));   // length with more than 4 bytes
+                _log.log(LOGP("MQTT: invalid packet"));   // length with more than 4 bytes
                 _fail(now);
                 return;
             }
@@ -323,7 +323,7 @@ private:
                 return;
             }
             // 4: user or password; 5: not authorized
-            _log.log(PSTR("MQTT: broker refused (%u)"), code);
+            _log.log(LOGP("MQTT: broker refused (%u)"), code);
             _fail(now);
         } else if (type == 3 && _state == ST_UP) {           // PUBLISH
             _command(now);
@@ -513,7 +513,7 @@ private:
 
     void _command(unsigned long now) {
         if (_rxHeader & 0x01) {
-            _log.log(PSTR("MQTT: retained command ignored"));
+            _log.log(LOGP("MQTT: retained command ignored"));
             return;
         }
         if ((_rxHeader & 0x06) || _rxLen > RX_LEN || _rxLen < 2) return;   // QoS 0 only, whole in _rx
@@ -525,7 +525,7 @@ private:
         memcpy(cmd, _rx + 2 + tl, n);
         cmd[n] = '\0';
         uint8_t r = _iot.command(cmd, now);
-        _log.log(PSTR("MQTT: command \"%.32s\"%s"), cmd, r == IoTService::OK ? "" : " refused");
+        _log.log(LOGP("MQTT: command \"%.32s\"%s"), cmd, r == IoTService::OK ? "" : " refused");
         _publishState(true, now);
     }
 };

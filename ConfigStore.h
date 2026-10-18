@@ -45,22 +45,22 @@ public:
 
     bool begin() {
         if (!LittleFS.begin()) {
-            _log.log(PSTR("LittleFS mount failed"));
+            _log.log(LOGP("LittleFS mount failed"));
             return false;
         }
-        _log.log(PSTR("LittleFS ready"));
+        _log.log(LOGP("LittleFS ready"));
         return true;
     }
 
     bool load() {
         if (!LittleFS.exists(PATH)) {
-            _log.log(PSTR("config.json not found"));
+            _log.log(LOGP("config.json not found"));
             return false;
         }
 
         File f = LittleFS.open(PATH, "r");
         if (!f) {
-            _log.log(PSTR("Could not open config.json"));
+            _log.log(LOGP("Could not open config.json"));
             return false;
         }
 
@@ -70,7 +70,7 @@ public:
             n < MAX_FILE ? (char*)malloc(n + 1) : nullptr, free);
         if (!text) {
             f.close();
-            _log.log(PSTR("config.json unreadable (%u bytes)"), (unsigned)n);
+            _log.log(LOGP("config.json unreadable (%u bytes)"), (unsigned)n);
             return false;
         }
         text.get()[f.readBytes(text.get(), n)] = '\0';
@@ -78,7 +78,7 @@ public:
 
         // A broken file changes nothing: checked whole before the defaults
         if (!json::object(text.get(), nullptr, nullptr)) {
-            _log.log(PSTR("JSON error"));
+            _log.log(LOGP("JSON error"));
             return false;
         }
         for (size_t i = 0; i < FIELD_COUNT; i++) _default(_field(FIELDS, i));
@@ -90,19 +90,19 @@ public:
         bool rehash = _cfg.webpss.length() && !Password::hashed(_cfg.webpss);
         if (rehash) {
             _cfg.webpss = Password::hash(_cfg.webpss);
-            _log.log(PSTR("Panel password: now stored as a hash"));
+            _log.log(LOGP("Panel password: now stored as a hash"));
         }
 
         if (ctx.version == 1) {
             _migrateV1(ctx);
-            _log.log(PSTR("Configuration migrated to v%d"), VERSION);
+            _log.log(LOGP("Configuration migrated to v%d"), VERSION);
             _backup();
             save();
             return true;
         }
-        if (ctx.version > VERSION) _log.log(PSTR("Configuration v%d, newer than the firmware"), (int)ctx.version);
+        if (ctx.version > VERSION) _log.log(LOGP("Configuration v%d, newer than the firmware"), (int)ctx.version);
         else if (rehash) save();
-        _log.log(PSTR("Configuration loaded"));
+        _log.log(LOGP("Configuration loaded"));
         return true;
     }
 
@@ -111,13 +111,13 @@ public:
     bool save() {
         json::Writer measure;
         if (_write(measure) >= MAX_FILE) {   // load() would refuse it
-            _log.log(PSTR("Config exceeds the file limit"));
+            _log.log(LOGP("Config exceeds the file limit"));
             return false;
         }
 
         File f = LittleFS.open(TMP_PATH, "w");
         if (!f) {
-            _log.log(PSTR("Could not save config"));
+            _log.log(LOGP("Could not save config"));
             return false;
         }
         json::Writer w(&f);
@@ -125,12 +125,12 @@ public:
         f.close();
 
         if (!LittleFS.rename(TMP_PATH, PATH)) {
-            _log.log(PSTR("Could not replace config.json"));
+            _log.log(LOGP("Could not replace config.json"));
             LittleFS.remove(TMP_PATH);
             return false;
         }
 
-        _log.log(PSTR("Configuration saved"));
+        _log.log(LOGP("Configuration saved"));
         return true;
     }
 

@@ -56,7 +56,7 @@ public:
         Source s = source();
         if (s == _logged) return;
         _logged = s;
-        _log.log(PSTR("Power: %s"), name(s));
+        _log.log(LOGP("Power: %s"), name(s));
     }
 
     // State as text (log and Status)

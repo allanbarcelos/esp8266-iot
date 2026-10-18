@@ -205,7 +205,7 @@ public:
         if (_wantCheck && _askRelay) {
             if (_waitingRelay(now)) return;
             _askRelay = false;
-            _log.log(PSTR("OTA: no answer from the relay"));
+            _log.log(LOGP("OTA: no answer from the relay"));
         }
         if (_wantCheck) {
             _wantCheck = false;
@@ -337,7 +337,7 @@ private:
     bool _tlsReady() {
         uint32_t heap  = ESP.getFreeHeap();
         uint32_t block = ESP.getMaxFreeBlockSize();
-        _log.log(PSTR("OTA heap %u block %u"), heap, block);
+        _log.log(LOGP("OTA heap %u block %u"), heap, block);
         if (heap >= GITHUB_HEAP && block >= GITHUB_BLOCK) return true;
         _note(Report::Failed, PSTR("Not enough memory (heap %u, largest block %u): restarting to try with "
                                    "the other services paused"), heap, block);
@@ -556,7 +556,7 @@ private:
         }
         if (!_client.connect(host, 443)) {
             _note(Report::Failed, PSTR("Could not reach GitHub"));
-            _log.log(PSTR("Version check failed"));
+            _log.log(LOGP("Version check failed"));
             _checkFailed(now);
             return;
         }
@@ -576,13 +576,13 @@ private:
     void _onCheckHeaders(unsigned long now, int r) {
         if (r < 0) {
             _note(Report::Failed, T_GITHUB);
-            _log.log(PSTR("Version JSON error: headers"));
+            _log.log(LOGP("Version JSON error: headers"));
             _checkFailed(now);
             return;
         }
         if (_hdrP.code != 200) {
             _note(Report::Failed, PSTR("GitHub HTTP %d"), _hdrP.code);
-            _log.log(PSTR("Version HTTP error: %d"), _hdrP.code);
+            _log.log(LOGP("Version HTTP error: %d"), _hdrP.code);
             _checkFailed(now);
             return;
         }
@@ -594,7 +594,7 @@ private:
     void _onCheckBody(unsigned long now, int r) {
         if (r < 0) {
             _note(Report::Failed, T_GITHUB);
-            _log.log(PSTR("Version JSON error: tag_name"));
+            _log.log(LOGP("Version JSON error: tag_name"));
             _checkFailed(now);
             return;
         }
@@ -621,7 +621,7 @@ private:
         }
         strlcpy(_available, _latest, sizeof(_available));
         _note(Report::Available, PSTR("New version %s"), _available);
-        _log.log(PSTR("New version found: %s"), _available);
+        _log.log(LOGP("New version found: %s"), _available);
         if (!_checkInstall) return;
         if (strcmp(_available, _rejected) == 0) {
             bool restore = _slim;
@@ -629,7 +629,7 @@ private:
             _retryDelay = 0;
             _clearPending();
             _note(Report::Failed, PSTR("%s rejected; waiting for another version"), _available);
-            _log.log(PSTR("OTA: %s was already rejected"), _available);
+            _log.log(LOGP("OTA: %s was already rejected"), _available);
             if (restore) _restore();
             return;
         }
@@ -725,7 +725,7 @@ private:
         snprintf_P(_path, OTA_PATH_CAP,
                    PSTR("/allanbarcelos/esp8266-iot/releases/download/%s/%s"),
                    version, assetName(signingEnabled()));
-        _log.log(PSTR("Firmware URL: https://%s%s"), _host, _path);
+        _log.log(LOGP("Firmware URL: https://%s%s"), _host, _path);
         _hop = 0;
         _downloadConnect(now);
     }
@@ -739,7 +739,7 @@ private:
         }
         if (!_client.connect(_host, 443)) {
             _note(Report::Failed, PSTR("Firmware download failed"));
-            _log.log(PSTR("Could not start OTA"));
+            _log.log(LOGP("Could not start OTA"));
             _downloadFailed(now);
             return;
         }
@@ -761,30 +761,30 @@ private:
     void _onDownloadHeaders(unsigned long now, int r) {
         if (r < 0) {
             _note(Report::Failed, PSTR("Incomplete OTA response"));
-            _log.log(PSTR("OTA: incomplete headers"));
+            _log.log(LOGP("OTA: incomplete headers"));
             _downloadFailed(now);
             return;
         }
         int code = _hdrP.code;
         if (_isRedirect(code)) {
-            _log.log(PSTR("OTA redirect %d"), code);
+            _log.log(LOGP("OTA redirect %d"), code);
             _client.stop();
             if (_path[0] == '\0') {
                 _note(Report::Failed, PSTR("OTA redirect without Location"));
-                _log.log(PSTR("OTA: redirect without Location"));
+                _log.log(LOGP("OTA: redirect without Location"));
                 _downloadFailed(now);
                 return;
             }
             if (_path[0] != '/' &&
                 !_splitUrl(_path, _host, sizeof(_host), _path, OTA_PATH_CAP)) {
                 _note(Report::Failed, PSTR("Invalid OTA redirect"));
-                _log.log(PSTR("OTA: invalid redirect"));
+                _log.log(LOGP("OTA: invalid redirect"));
                 _downloadFailed(now);
                 return;
             }
             if (++_hop >= MAX_REDIRECTS) {
                 _note(Report::Failed, PSTR("OTA exceeded the redirects"));
-                _log.log(PSTR("OTA: too many redirects"));
+                _log.log(LOGP("OTA: too many redirects"));
                 _downloadFailed(now);
                 return;
             }
@@ -793,7 +793,7 @@ private:
         }
         if (code != 200) {
             _note(Report::Failed, PSTR("Download HTTP %d"), code);
-            _log.log(PSTR("OTA HTTP error: %d"), code);
+            _log.log(LOGP("OTA HTTP error: %d"), code);
             _downloadFailed(now);
             return;
         }
@@ -817,7 +817,7 @@ private:
 
         if (flashSize == 0 || !Update.begin(flashSize)) {
             _note(Report::Failed, PSTR("No room for the firmware"));
-            _log.log(PSTR("No room for OTA: %s"), Update.getErrorString().c_str());
+            _log.log(LOGP("No room for OTA: %s"), Update.getErrorString().c_str());
             _downloadFailed(now);
             return;
         }
@@ -827,8 +827,8 @@ private:
         _lastProgress = now;
         _inProgress   = true;
         _wifi.setOTAInProgress(true);
-        if (_unknownLen) _log.log(PSTR("OTA started: unknown size"));
-        else _log.log(PSTR("OTA started: %d bytes"), _contentLength);
+        if (_unknownLen) _log.log(LOGP("OTA started: unknown size"));
+        else _log.log(LOGP("OTA started: %d bytes"), _contentLength);
     }
 
     void _streamChunk(unsigned long now) {
@@ -866,7 +866,7 @@ private:
         int pct = progressPercent();
         if (pct >= _lastPct + 10) {
             _lastPct = pct - pct % 10;
-            _log.log(PSTR("OTA: %d%%"), _lastPct);
+            _log.log(LOGP("OTA: %d%%"), _lastPct);
         }
 
         if (!_unknownLen && _written >= (size_t)_contentLength) {
@@ -879,12 +879,12 @@ private:
             _tries = 0;
             _retryDelay = 0;
             _clearPending();
-            _log.log(PSTR("OTA done! Restarting..."));
+            _log.log(LOGP("OTA done! Restarting..."));
             _note(Report::UpToDate, PSTR("Firmware updated"));
             _wifi.scheduleRestart(1000);
         } else {
             _note(Report::Failed, PSTR("Image rejected: %s"), Update.getErrorString().c_str());
-            _log.log(PSTR("OTA error: %s"), Update.getErrorString().c_str());
+            _log.log(LOGP("OTA error: %s"), Update.getErrorString().c_str());
             strlcpy(_rejected, _available, sizeof(_rejected));
             _saveRejected();
             bool restore = _slim;
@@ -898,7 +898,7 @@ private:
 
     void _abort(const char* reason, unsigned long now) {
         _note(Report::Failed, PSTR("%s"), reason);
-        _log.log(PSTR("%s"), reason);
+        _log.log(LOGP("%s"), reason);
         Update.end(false);
         _finish();
         _scheduleRetry(now, true);
@@ -922,7 +922,7 @@ private:
                 return;
             }
             _note(Report::Failed, PSTR("OTA failed, will try again later"));
-            _log.log(PSTR("OTA: out of retries"));
+            _log.log(LOGP("OTA: out of retries"));
             return;
         }
         unsigned long delayMs = _retryDelay == 0 ? RETRY_MS : _retryDelay * 2;
@@ -932,7 +932,7 @@ private:
         if (install) _wantInstall = true;
         else _wantCheck = true;
         _note(Report::Failed, PSTR("Retrying in %u s"), (unsigned)(delayMs / 1000));
-        _log.log(PSTR("OTA: retrying in %u s"), (unsigned)(delayMs / 1000));
+        _log.log(LOGP("OTA: retrying in %u s"), (unsigned)(delayMs / 1000));
     }
 
     void _persistAndReboot() {
@@ -942,12 +942,12 @@ private:
             _wantInstall = false;
             _wantCheck = false;
             _note(Report::Failed, PSTR("OTA gave up after recovery"));
-            _log.log(PSTR("OTA: gave up after recovery"));
+            _log.log(LOGP("OTA: gave up after recovery"));
             _restore();
             return;
         }
-        if (!_savePending(_available, boots)) _log.log(PSTR("OTA: could not save the recovery request"));
-        else _log.log(PSTR("OTA: recovery on the next boot"));
+        if (!_savePending(_available, boots)) _log.log(LOGP("OTA: could not save the recovery request"));
+        else _log.log(LOGP("OTA: recovery on the next boot"));
         _wifi.scheduleRestart(1500);
     }
 
@@ -990,7 +990,7 @@ private:
     void _saveRejected() {
         File f = LittleFS.open(REJECTED_PATH, "w");
         if (!f) {
-            _log.log(PSTR("OTA: could not save the rejected version"));
+            _log.log(LOGP("OTA: could not save the rejected version"));
             return;
         }
         f.write((const uint8_t*)_rejected, strlen(_rejected));
@@ -1036,12 +1036,12 @@ private:
         bool isCheck = strcmp(tag, "check") == 0;
         if (t == 0 || (!isCheck && parseTag(tag) < 0)) {
             LittleFS.remove(PENDING_PATH);
-            _log.log(PSTR("OTA: invalid recovery request"));
+            _log.log(LOGP("OTA: invalid recovery request"));
             return;
         }
         if (boots > MAX_BOOTS) {
             LittleFS.remove(PENDING_PATH);
-            _log.log(PSTR("OTA: recovery attempts exhausted"));
+            _log.log(LOGP("OTA: recovery attempts exhausted"));
             return;
         }
         _pendingBoots = (uint8_t)boots;
@@ -1053,12 +1053,12 @@ private:
             _available[0] = '\0';
             _wantCheck = true;
             _note(Report::Checking, PSTR("Resuming the check"));
-            _log.log(PSTR("OTA: resuming the check (boot %u)"), (unsigned)_pendingBoots);
+            _log.log(LOGP("OTA: resuming the check (boot %u)"), (unsigned)_pendingBoots);
             return;
         }
         strlcpy(_available, tag, sizeof(_available));
         _wantInstall = true;
         _note(Report::Available, PSTR("Resuming %s"), _available);
-        _log.log(PSTR("OTA: resuming %s (boot %u)"), _available, (unsigned)_pendingBoots);
+        _log.log(LOGP("OTA: resuming %s (boot %u)"), _available, (unsigned)_pendingBoots);
     }
 };

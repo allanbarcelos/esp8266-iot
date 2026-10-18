@@ -221,15 +221,15 @@ private:
         }
         if (actions) _actions(headers);
         if (_via && _via->post(host(), _cfg.ntfy_topic, headers, body)) {
-            _log.log(PSTR("ntfy sent (relay)"));
+            _log.log(LOGP("ntfy sent (relay)"));
             return true;
         }
         if (!PublicIPResolver::memoryOk()) {
-            _log.log(PSTR("ntfy: not enough memory"));
+            _log.log(LOGP("ntfy: not enough memory"));
             return false;
         }
         if (!_clock.synced()) {
-            _log.log(PSTR("ntfy: clock not synchronized"));
+            _log.log(LOGP("ntfy: clock not synchronized"));
             return false;
         }
         BearSSL::X509List trust;
@@ -238,7 +238,7 @@ private:
         client.setTrustAnchors(&trust);
         client.setX509Time(_clock.now());
         if (!client.prepare(5000)) {
-            _log.log(PSTR("ntfy: TLS unavailable"));
+            _log.log(LOGP("ntfy: TLS unavailable"));
             return false;
         }
         char path[sizeof(_cfg.ntfy_topic) + 1];
@@ -246,10 +246,10 @@ private:
         int code = https::request(client, host(), "POST", path, headers.c_str(), body, 5000);
 
         if (code >= 200 && code < 300) {
-            _log.log(PSTR("ntfy sent (%d)"), code);
+            _log.log(LOGP("ntfy sent (%d)"), code);
             return true;
         }
-        _log.log(PSTR("ntfy error: %d"), code);
+        _log.log(LOGP("ntfy error: %d"), code);
         return false;
     }
 
@@ -329,12 +329,12 @@ private:
             if (_state == ST_IDLE) return;
         }
         if (!_st->tls.connected()) {
-            _log.log(PSTR("ntfy: command stream closed"));
+            _log.log(LOGP("ntfy: command stream closed"));
             _drop(now, RECONNECT_MS);
             return;
         }
         if (now - _lastData > IDLE_TIMEOUT) {
-            _log.log(PSTR("ntfy: command stream stalled"));
+            _log.log(LOGP("ntfy: command stream stalled"));
             _drop(now, RECONNECT_MS);
         }
     }
@@ -345,7 +345,7 @@ private:
             return;
         }
         if (!PublicIPResolver::memoryOk()) {
-            _log.log(PSTR("ntfy: not enough memory for commands"));
+            _log.log(LOGP("ntfy: not enough memory for commands"));
             _fail(now);
             return;
         }
@@ -354,7 +354,7 @@ private:
         _st->tls.setTrustAnchors(&_st->trust);
         _st->tls.setX509Time(_clock.now());
         if (!_st->tls.prepare(CONNECT_MS) || !_st->tls.connect(host(), 443)) {
-            _log.log(PSTR("ntfy: no connection for commands"));
+            _log.log(LOGP("ntfy: no connection for commands"));
             _fail(now);
             return;
         }
@@ -392,7 +392,7 @@ private:
             const char* sp = strchr(_line, ' ');
             int code = sp ? atoi(sp + 1) : 0;
             if (code != 200) {
-                _log.log(PSTR("ntfy: commands HTTP %d"), code);
+                _log.log(LOGP("ntfy: commands HTTP %d"), code);
                 _fail(now);
                 return;
             }
@@ -401,7 +401,7 @@ private:
             if (_line[0] == '\0') {
                 _state = ST_BODY;
                 _backoff = 5;
-                _log.log(PSTR("ntfy: commands connected"));
+                _log.log(LOGP("ntfy: commands connected"));
             }
         } else {
             _onEvent(now);
@@ -440,16 +440,16 @@ private:
         strlcpy(_lastId, e.id, sizeof(_lastId));
         long age = (long)(_clock.now() - (time_t)e.time);
         if (age > STALE_S) {
-            _log.log(PSTR("ntfy: old command ignored"));
+            _log.log(LOGP("ntfy: old command ignored"));
             return;
         }
         uint8_t r = e.whole ? _iot->command(e.text, now) : (uint8_t)IoTService::INVALID;
-        _log.log(PSTR("ntfy: command \"%.32s\""), e.text);
+        _log.log(LOGP("ntfy: command \"%.32s\""), e.text);
         if (r == IoTService::OK) return;
         const char* why = r == IoTService::INVALID ? "invalid command"
                         : "command not valid for this actuator";
         snprintf(_reply, sizeof(_reply), "[error] %s: %.32s", why, e.text);
-        _log.log(PSTR("ntfy: %s"), _reply);
+        _log.log(LOGP("ntfy: %s"), _reply);
     }
 
     void _retry(unsigned long now, unsigned long ms) {

@@ -63,7 +63,7 @@ private:
     void _sync() {
         char ip[16];
         strlcpy(ip, _cfg.publicIP, sizeof(ip));
-        _log.log(PSTR("Updating DNS to %s"), ip);
+        _log.log(LOGP("Updating DNS to %s"), ip);
         char path[sizeof("/client/v4/zones//dns_records/") + sizeof(_cfg.cf_zone) + sizeof(_cfg.cf_record)];
         char payload[sizeof("{\"content\":\"\"}") + sizeof(_cfg.publicIP)];
         snprintf_P(path, sizeof(path), PSTR("/client/v4/zones/%s/dns_records/%s"), _cfg.cf_zone, _cfg.cf_record);
@@ -71,12 +71,12 @@ private:
         cfapi::Answer a;
         char why[64];
         if (!cfapi::call(_cfg, _clock, "PATCH", path, payload, a, why)) {
-            _log.log(PSTR("DNS: %s"), why);
+            _log.log(LOGP("DNS: %s"), why);
             return;
         }
         strlcpy(_syncedIP, ip, sizeof(_syncedIP));
         _cfg.lastDnsUpdate = millis();
         _wifi.notifySuccess();
-        _log.log(PSTR("DNS updated!"));
+        _log.log(LOGP("DNS updated!"));
     }
 };

@@ -103,9 +103,9 @@ private:
         _cfg.ipChecked = now;
         if (strcmp(ip, _cfg.publicIP) == 0) return;
         if (_cfg.publicIP[0])
-            _log.log(PSTR("Public IP changed: %s -> %s"), _cfg.publicIP, ip);
+            _log.log(LOGP("Public IP changed: %s -> %s"), _cfg.publicIP, ip);
         else
-            _log.log(PSTR("Public IP: %s"), ip);
+            _log.log(LOGP("Public IP: %s"), ip);
         strlcpy(_cfg.publicIP, ip, sizeof(_cfg.publicIP));
         _cfg.ipChanged = now;
         _rdns.lookup(ip, _cfg.publicHost, sizeof(_cfg.publicHost), now);

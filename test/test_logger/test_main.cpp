@@ -125,10 +125,10 @@ void test_full_ram_drops_the_oldest() {
     TEST_ASSERT_FALSE(LittleFS.exists("/log.0"));
 }
 
-// Bytes from 0x80 up are the pairs, '\n' ends a line: both go as '?'; a
-// long line is cut
+// Bytes from 0x80 up are the pairs, '\n' ends a line: both go as '?' (a
+// name comes in an argument; the formats are ASCII); a long line is cut
 void test_text_is_kept_apart_from_the_packing() {
-    lgr.log("SSID Caf\xc3\xa9\nnext");
+    lgr.log("%s", "SSID Caf\xc3\xa9\nnext");
     TEST_ASSERT_EQUAL_STRING("SSID Caf??", lines()[0].text.substr(0, 10).c_str());
     TEST_ASSERT_EQUAL_STRING("SSID Caf???next", lines()[0].text.c_str());
     std::string big(500, 'A');
@@ -198,8 +198,20 @@ void test_kept_files_last_a_day() {
     TEST_ASSERT_TRUE(LittleFS.exists("/log.1"));
 }
 
+// A format packed by the compiler (LOGP) gives the same line as a plain one
+void test_packed_formats() {
+    PGM_P packed = LOGP("Configuration saved: %d fields, %s");
+    TEST_ASSERT_TRUE(strlen(packed) < strlen("Configuration saved: %d fields, %s"));
+    lgr.log(packed, 12, "ok");
+    lgr.log("Configuration saved: %d fields, %s", 12, "ok");
+    std::vector<Line> v = lines();
+    TEST_ASSERT_EQUAL_STRING("Configuration saved: 12 fields, ok", v[0].text.c_str());
+    TEST_ASSERT_EQUAL_STRING(v[0].text.c_str(), v[1].text.c_str());
+}
+
 int main() {
     UNITY_BEGIN();
+    RUN_TEST(test_packed_formats);
     RUN_TEST(test_kept_files_last_a_day);
     RUN_TEST(test_line_waits_then_goes_to_the_file);
     RUN_TEST(test_half_full_is_written_and_packed);

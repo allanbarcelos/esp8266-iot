@@ -191,7 +191,7 @@ private:
             return;
         }
         if (!PublicIPResolver::memoryOk()) {
-            _log.log(PSTR("relay: not enough memory"));
+            _log.log(LOGP("relay: not enough memory"));
             _fail(now);
             return;
         }
@@ -200,7 +200,7 @@ private:
         _s->tls.setTrustAnchors(&_s->trust);
         _s->tls.setX509Time(_clock.now());
         if (!_s->tls.prepare(CONNECT_MS) || !_s->tls.connect(_cfg.relay_host, 443)) {
-            _log.log(PSTR("relay: no connection"));
+            _log.log(LOGP("relay: no connection"));
             _fail(now);
             return;
         }
@@ -209,7 +209,7 @@ private:
                    _cfg.relay_secret, (unsigned)PROTOCOL);
         int code = _s->ws.handshake(_cfg.relay_host, "/.relay", extra);
         if (code != 101) {
-            _log.log(PSTR("relay: refused (HTTP %d)"), code);
+            _log.log(LOGP("relay: refused (HTTP %d)"), code);
             _outdated = code == 426;
             _fail(now);
             return;
@@ -218,7 +218,7 @@ private:
         _public[0] = '\0';
         _backoff = 5;
         _lastIn = _lastPing = _lastState = now;
-        _log.log(PSTR("relay: connected"));
+        _log.log(LOGP("relay: connected"));
         _hello();
         _sendState(true, now);
     }
@@ -234,12 +234,12 @@ private:
             }
         }
         if (_s->ws.error() || !_s->tls.connected()) {
-            _log.log(PSTR("relay: connection lost"));
+            _log.log(LOGP("relay: connection lost"));
             _drop(now, RECONNECT_MS);
             return;
         }
         if (now - _lastIn >= IDLE_MS) {
-            _log.log(PSTR("relay: stalled"));
+            _log.log(LOGP("relay: stalled"));
             _drop(now, RECONNECT_MS);
             return;
         }
@@ -262,7 +262,7 @@ private:
             _s->ws.send(WsClient::PONG, b, n);
         } else if (op == WsClient::CLOSE) {
             _s->ws.skip();
-            _log.log(PSTR("relay: closed by the Worker"));
+            _log.log(LOGP("relay: closed by the Worker"));
             _close();
         } else if (op != WsClient::BINARY) {
             _s->ws.skip();

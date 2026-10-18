@@ -271,6 +271,7 @@ public:
 struct SerialClass {
     int  baud = 0;
     void begin(int b)             { baud = b; }
+    void print(const char* s)     { std::printf("%s", s); }
     void println(const char* s)   { std::printf("%s\n", s); }
     std::string last;   // last printf output
     int         printfCalls = 0;

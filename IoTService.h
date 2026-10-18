@@ -120,7 +120,7 @@ public:
             pinMode((uint8_t)_r.sensorPin, INPUT_PULLUP);
             if (iot::i2c(s.kind)) pinMode((uint8_t)I2cBus::sclFor(_r.sensorPin), INPUT_PULLUP);
             if (s.kind == iot::K_PULSE) attachInterrupt((uint8_t)_r.sensorPin, onPulse, FALLING);
-            _log.log(PSTR("IoT: sensor %s GPIO%d"), s.slug, _r.sensorPin);
+            _log.log(LOGP("IoT: sensor %s GPIO%d"), s.slug, _r.sensorPin);
         }
         if (_act >= 0) {
             _level = _r.dutyOn;
@@ -128,13 +128,13 @@ public:
             if (_r.restore) _restore();
             if (capability() == iot::C_POSITION) {
                 _servoOk = _servo.attach((int)_r.actuatorPin) != 0;
-                if (!_servoOk) _log.log(PSTR("IoT: servo unavailable"));
+                if (!_servoOk) _log.log(LOGP("IoT: servo unavailable"));
             } else {
                 pinMode((uint8_t)_r.actuatorPin, OUTPUT);
             }
             _onSince = millis();
             _drive();
-            _log.log(PSTR("IoT: actuator %s GPIO%d"), iot::ACTUATORS[_act].slug, _r.actuatorPin);
+            _log.log(LOGP("IoT: actuator %s GPIO%d"), iot::ACTUATORS[_act].slug, _r.actuatorPin);
         }
     }
 
@@ -414,7 +414,7 @@ private:
 
     void _unknown(const char* part) {
         _unknownType = true;
-        _log.log(PSTR("IoT: unknown %s type"), part);
+        _log.log(LOGP("IoT: unknown %s type"), part);
     }
 
     static size_t _left(size_t n, size_t used) { return n > used ? n - used : 0; }
@@ -632,7 +632,7 @@ private:
     void _fail() {
         if (_failing) return;
         _failing = true;
-        _log.log(PSTR("IoT: reading failed"));
+        _log.log(LOGP("IoT: reading failed"));
     }
 
     // Tenths of a degree or of humidity: they fit in int16_t, and the text in the buffer

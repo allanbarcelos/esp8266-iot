@@ -82,7 +82,7 @@ public:
         uint8_t j = _job;
         _job = NONE;
         bool ok = j == SCAN ? _scan() : j == RECORD ? _record() : _deploy();
-        if (!ok) _log.log(PSTR("Cloudflare: %s"), _message);
+        if (!ok) _log.log(LOGP("Cloudflare: %s"), _message);
         else _message[0] = 0;   // a step that may fail (a missing Worker) said why
         _state = ok ? DONE : FAILED;
     }
@@ -165,7 +165,7 @@ private:
             strlcpy(_cfg.cf_account, a.id, sizeof(_cfg.cf_account));
         }
         _store.save();
-        _log.log(PSTR("Cloudflare: token reaches %u zone(s)"), (unsigned)_zones);
+        _log.log(LOGP("Cloudflare: token reaches %u zone(s)"), (unsigned)_zones);
         return true;
     }
 
@@ -186,7 +186,7 @@ private:
                        _name, _cfg.publicIP[0] ? _cfg.publicIP : "192.0.2.1");
             path[n] = '\0';
             if (!cfapi::call(_cfg, _clock, "POST", path, body, a, _message)) return false;
-            _log.log(PSTR("Cloudflare: record %s created"), _name);
+            _log.log(LOGP("Cloudflare: record %s created"), _name);
         }
         strlcpy(_cfg.cf_zone, z.id, sizeof(_cfg.cf_zone));
         strlcpy(_cfg.cf_account, z.account, sizeof(_cfg.cf_account));
@@ -328,7 +328,7 @@ private:
         _cfg.relay_ver = RELAY_VERSION;
         _store.save();
         _deployed = true;
-        _log.log(PSTR("Cloudflare: relay at %s"), host);
+        _log.log(LOGP("Cloudflare: relay at %s"), host);
         return true;
     }
 };

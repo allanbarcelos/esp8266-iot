@@ -68,11 +68,11 @@ public:
         ota.setAutomatic(config.ota_auto);
         ota.begin();
         ntfy.via(&relay);   // with the relay up, its Worker sends the posts
-        logger.log(PSTR("OTA: reserve %u KB, free %u KB"),
+        logger.log(LOGP("OTA: reserve %u KB, free %u KB"),
                    FlashLayout::OTA_RESERVE / 1024u,
                    ESP.getFreeSketchSpace() / 1024u);
         if (ota.slim()) {
-            logger.log(PSTR("OTA: recovery mode"));
+            logger.log(LOGP("OTA: recovery mode"));
         } else {
             web.setRelay(&relay);
             web.setNet(&net);
@@ -83,10 +83,10 @@ public:
         }
 
         // getResetReason survives the reboot and says why the previous boot died.
-        logger.log(PSTR("Reset: %s"), ESP.getResetReason().c_str());
+        logger.log(LOGP("Reset: %s"), ESP.getResetReason().c_str());
         char crash[NetArbiter::CRASH_LEN];
         if (net.lastCrash(crash)) {
-            logger.log(PSTR("Crashed in: %s"), crash);
+            logger.log(LOGP("Crashed in: %s"), crash);
             File f = LittleFS.open(NetArbiter::CRASH_PATH, "w");   // for Status, after other restarts
             if (f) {
                 f.write(reinterpret_cast<const uint8_t*>(crash), strlen(crash));
@@ -94,7 +94,7 @@ public:
             }
         }
         net.at(NetArbiter::NONE);
-        logger.log(PSTR("System started %s"), firmware_version);
+        logger.log(LOGP("System started %s"), firmware_version);
     }
 
     void tick() {
@@ -177,7 +177,7 @@ public:
         unsigned long before = net.worst();
         net.loop(millis() - now);
         if (net.worst() > before)
-            logger.log(PSTR("Slowest loop so far: %lu ms (%s)"), net.worst(), NetArbiter::name(net.worstWho()));
+            logger.log(LOGP("Slowest loop so far: %lu ms (%s)"), net.worst(), NetArbiter::name(net.worstWho()));
     }
 
 private:

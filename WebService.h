@@ -141,7 +141,7 @@ public:
     void begin() {
         _generateCSRF();
         _server.begin(_dispatch, this);
-        _log.log(PSTR("Web server listening on port 80"));
+        _log.log(LOGP("Web server listening on port 80"));
     }
 
     void tick() { _server.handleClient(); }
@@ -659,7 +659,7 @@ private:
     bool _loginBlocked() { return _blocked(_tries()); }
 
     void _loginFailed(Throttle& t) {
-        if (t.fail()) _log.log(PSTR("Login: repeated failures, growing wait"));
+        if (t.fail()) _log.log(LOGP("Login: repeated failures, growing wait"));
     }
 
     // Password and code right: this address becomes the owner's
@@ -1752,7 +1752,7 @@ private:
             return;
         }
         LittleFS.remove(CloudflareSetup::ZONES_PATH);
-        _log.log(PSTR("Cloudflare: token and settings removed"));
+        _log.log(LOGP("Cloudflare: token and settings removed"));
         _savedPage(H(L_CF_CLEARED), P_CONFIG);
     }
 
@@ -1961,7 +1961,7 @@ private:
         // A key shown to an earlier session is not offered again
         _pendingSet = false;
         _startSession(mfa ? 2 : 1);
-        _log.log(PSTR("Panel: signed in"));
+        _log.log(LOGP("Panel: signed in"));
         _redirect(mfa ? "/" : "/mfa");
     }
 
@@ -2012,7 +2012,7 @@ private:
         _pendingSet = false;
         _startSession(2);
         _signedIn();
-        _log.log(PSTR("Panel: authenticator on"));
+        _log.log(LOGP("Panel: authenticator on"));
         _redirect("/");
     }
 
@@ -2028,7 +2028,7 @@ private:
         _ensurePending();
         _startSession(1);
         _signedIn();
-        _log.log(PSTR("Panel: authenticator reset"));
+        _log.log(LOGP("Panel: authenticator reset"));
         _redirect("/mfa");
     }
 
@@ -2536,7 +2536,7 @@ private:
         if (!_guard()) return;
         if (!_checkCSRF()) return;
         String cmd = _server.arg("cmd");
-        _log.log(PSTR("Panel: command \"%.32s\""), cmd.c_str());
+        _log.log(LOGP("Panel: command \"%.32s\""), cmd.c_str());
         _sendState(_iot.command(cmd.c_str(), millis()));
     }
 
@@ -2593,7 +2593,7 @@ private:
         if (!_apiGuard()) return;
         String cmd = _server.arg("cmd");
         if (cmd.length() == 0) cmd = _server.arg("plain");
-        _log.log(PSTR("API: command \"%.32s\""), cmd.c_str());
+        _log.log(LOGP("API: command \"%.32s\""), cmd.c_str());
         _sendState(_iot.command(cmd.c_str(), millis()));
     }
 
@@ -2641,7 +2641,7 @@ private:
         }
         LittleFS.remove(IoTState::PATH);
         _iot.begin();
-        _log.log(PSTR("IoT: sensor and actuator removed"));
+        _log.log(LOGP("IoT: sensor and actuator removed"));
         _savedPage(H(L_IOT_CLEARED), P_IOT);
     }
 

@@ -32,16 +32,17 @@ struct Buf {
     size_t len;  // with the '\0'; 0 = not ASCII or too long
 };
 
-// The packing, run by the compiler (and by the tests, at run time)
-constexpr Buf encode(const char* s) {
+// The packing, run by the compiler (and by the tests, at run time); the
+// pairs are the HTML's, or the log's (Logger.h, LOGP)
+constexpr Buf encode(const char* s, const uint8_t (*pairs)[2] = HTML_PAIRS, uint8_t count = HTML_PAIR_COUNT) {
     Buf b{};
     size_t n = 0;
     for (; s[n]; n++) {
         if (n + 1 == MAX || (uint8_t)s[n] >= CODE) return Buf{};
         b.c[n] = s[n];
     }
-    for (uint8_t k = 0; k < HTML_PAIR_COUNT; k++) {
-        const char a = (char)HTML_PAIRS[k][0], z = (char)HTML_PAIRS[k][1];
+    for (uint8_t k = 0; k < count; k++) {
+        const char a = (char)pairs[k][0], z = (char)pairs[k][1];
         size_t o = 0;
         for (size_t i = 0; i < n; i++, o++) {
             if (b.c[i] == a && i + 1 < n && b.c[i + 1] == z) {
@@ -75,12 +76,12 @@ template <size_t N> constexpr Str<N> cut(const Buf& b) {
 #define HTML_SECTION_ __attribute__((section("\".irom0.pstr." __FILE__ "." __STRINGIZE(__LINE__) "." \
                                               __STRINGIZE(__COUNTER__) "\", \"aSM\", @progbits, 1 #")))
 #define HTML_STORE_(buf, str)                                                       \
-    static_assert(buf.len, "H(): the text must be ASCII and shorter than html::MAX"); \
+    static_assert(buf.len, "the text must be ASCII and shorter than html::MAX");     \
     static const html::Str<buf.len> str HTML_SECTION_ = html::cut<buf.len>(buf)
 #define HTML_AT_(buf, str) str.c
 #else
 #define HTML_STORE_(buf, str) \
-    static_assert(buf.len, "H(): the text must be ASCII and shorter than html::MAX")
+    static_assert(buf.len, "the text must be ASCII and shorter than html::MAX")
 #define HTML_AT_(buf, str) buf.c
 #endif
 
