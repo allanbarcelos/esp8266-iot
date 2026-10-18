@@ -1,15 +1,114 @@
 # 📘 ESP8266 IoT — Cloudflare DDNS, OTA and local IoT
 
+[![Installs](https://img.shields.io/endpoint?url=https://esp8266-installs.allan-d68.workers.dev/badge)](https://allanbarcelos.github.io/esp8266-dns/)
+
 <p align="center"><img src="docs/esp-01.jpg" alt="ESP-01 module" width="300"><br><sub>Photo: SparkFun, CC BY 2.0</sub></p>
 
-Firmware for the **ESP-01 (ESP8266, 1 MB)**. One device does three jobs:
+## 📑 Contents
 
-1. **Dynamic DNS**: keeps a Cloudflare A record pointing at the residential public IP and sends that IP through [ntfy.sh](https://ntfy.sh).
-2. **IoT**: one sensor and one actuator, each optional. Operated from the panel, from a **local API** that works without internet, and from **ntfy commands** delivered in about a second.
-3. **Self-maintenance**: signed OTA updates from GitHub Releases, Wi-Fi/memory watchdogs and a daily reboot.
-4. **Remote access**: the panel and the API at an HTTPS address of yours from anywhere, through a Cloudflare Worker the device sets up itself. No open port, no extra computer.
+- [About](#-about)
+- [Features](#-features)
+- [Supported modules](#-supported-modules)
+- [Architecture](#-architecture)
+- [First use](#-first-use)
+  - [Panel language](#panel-language)
+  - [Cloudflare token](#cloudflare-token)
+- [IoT](#-iot)
+  - [What the device does](#what-the-device-does)
+  - [Sensors](#sensors)
+  - [Actuators, by capability](#actuators-by-capability)
+  - [Rule (sensor and actuator)](#rule-sensor-and-actuator)
+  - [The IoT card on Home](#the-iot-card-on-home)
+  - [Reconfiguring](#reconfiguring)
+- [Local API](#-local-api)
+- [ntfy](#-ntfy)
+  - [Server](#server)
+  - [Data topic (outgoing)](#data-topic-outgoing)
+  - [Command topic (incoming)](#command-topic-incoming)
+- [Power and battery](#-power-and-battery)
+- [MQTT](#-mqtt)
+  - [Home Assistant (discovery)](#home-assistant-discovery)
+- [Compatibility and adding modules](#-compatibility-and-adding-modules)
+- [Public IP and DNS updates](#-public-ip-and-dns-updates)
+- [Signed OTA](#-signed-ota)
+  - [Signing key](#signing-key)
+- [Flash budget](#-flash-budget)
+- [Resilience](#️-resilience)
+- [Tests](#-tests)
+- [CI/CD](#-cicd)
+- [Log](#-log)
+- [Local build](#-local-build)
+- [Status and next steps](#️-status-and-next-steps)
+- [License](#-license)
 
-The web panel is self-contained (CSS, scripts and the pin drawing are in the firmware), so it works in setup mode and on networks with no internet.
+---
+
+## 💡 About
+
+A general-purpose firmware for the **ESP8266**, written for the smallest board that carries it: the **ESP-01**, with **1 MB of flash, about 80 KB of RAM and four usable pins**. One device is at once a **network appliance** (it keeps a Cloudflare DNS record pointing at your home's public IP, tells you when it changes, and opens its panel to you from anywhere with no open port) and an **IoT node** (one sensor and one actuator, chosen from a catalog, driven from a web panel, a local API, MQTT/Home Assistant, ntfy or an automatic rule). It updates itself from GitHub with signed images and looks after itself with watchdogs, a scheduled restart and a persistent log.
+
+It was designed inside the ESP8266's limits rather than ported to them. Every feature is measured in bytes of flash and of RAM before it goes in, and the firmware is held under a fixed budget (500,000 bytes, checked by CI). In practice that means:
+
+- **Own lean pieces instead of general libraries** where it pays: the HTTP server, the JSON reader and writer, the HTTPS client, the WebSocket client, the MQTT client and the sensor drivers, each with only what the device uses.
+- **Compression everywhere it is free at run time:** the panel's HTML is packed into byte pairs by the compiler, the text in four languages is one table compressed by context mixing and decoded by the browser, the log lines are packed before they reach the flash, the CSS and scripts are gzipped.
+- **The browser does the work it can:** it draws the panel, translates it, writes the dates; the device sends markers and numbers.
+- **One TLS session at a time**, given in turns by priority, because there is heap for one; TLS trimmed to ECDHE + AES-GCM.
+- **Text in flash, not RAM**, and a non-blocking loop: every service runs a slice of work per tick.
+- **Tested off the device:** 100 % line, function and branch coverage on native tests, sanitizers, static analysis and fuzzing on every change, and each release runs on a real ESP-01 before the next.
+
+It works without internet (setup access point, local panel and API, the sensor and the rule keep running) and with it (DDNS, remote access, notifications, updates).
+
+## ✨ Features
+
+| Feature | What it does |
+| --- | --- |
+| **Cloudflare DDNS** | Keeps an A record at the public IP; from the API token alone it finds the domains and creates the record by name |
+| **Public IP** | Checks it every 5 min over HTTPS (or learns it from the relay), with its reverse name; posts each change to ntfy |
+| **Remote access** | The panel and the API at your own HTTPS address, through a Cloudflare Worker the device deploys itself; no open port ([details](docs/REMOTE-ACCESS.md)) |
+| **Web panel** | Self-contained (works offline and in setup mode), in English, Portuguese, Spanish and French, phone-friendly |
+| **Panel security** | PBKDF2 password, authenticator codes (TOTP), CSRF tokens, Content-Security-Policy, growing waits after wrong attempts |
+| **Local API** | JSON state and commands with a Bearer token, without internet |
+| **ntfy** | Notifications with action buttons, and commands delivered in about a second; your own server too |
+| **MQTT + Home Assistant** | State, commands and availability; discovery of the device's entities, battery and diagnostics |
+| **IoT** | One sensor and one actuator from a catalog, a card on Home drawn for each type |
+| **Automatic rule** | The sensor drives the actuator: follow, toggle, limits with hysteresis, proportional level, time window |
+| **Actuator safety** | Timed pulse, "off by itself after N minutes", state restored (or not) after a power loss |
+| **Battery** | MAX17048 gauge: on supply, on battery or charging, charge and rate; in the panel, the API and MQTT |
+| **Signed OTA** | Daily check at a time you pick, signed images bound to the version, recovery mode when memory is short |
+| **Scheduled restart** | On the days of the week and at the time set in Settings |
+| **Watchdogs** | Wi-Fi and memory watchdogs; the part of the loop and the address of a crash are kept across the reset |
+| **Persistent log** | Dated lines in LittleFS (3 rotating files, packed), a day of history, downloadable |
+| **Status** | Memory, network turn, slowest loop, stack, flash, Wi-Fi, last crash |
+| **Setup mode** | An access point with a per-device password for the first configuration |
+| **Web installer** | Flashes an ESP-01 from Chrome or Edge, no tools to install ([installer](https://allanbarcelos.github.io/esp8266-dns/)); finished installs are counted on the badge above |
+
+## 🧱 Supported modules
+
+The ESP-01 has four usable pins and no analog input: one sensor and one actuator at a time, plus the battery gauge on the two pins left. Details and wiring hints: [IoT](#-iot).
+
+| Module | Kind | Identifier | Interface |
+| --- | --- | --- | --- |
+| DHT22 / DHT11 | Temperature and humidity | `dht22`, `dht11` | 1 pin |
+| DS18B20 | Temperature | `ds18b20` | 1-Wire |
+| SHT30 / SHT31 | Temperature and humidity | `sht3x` | I2C (0x44) |
+| AHT20 / AHT21 | Temperature and humidity | `aht20` | I2C (0x38) |
+| BH1750 | Light | `bh1750` | I2C (0x23) |
+| HC-SR04 / JSN-SR04T | Distance, tank level or volume | `distance` | 1 pin (trig and echo) |
+| YF-S201 | Flow or pulses | `pulses` | 1 pin |
+| PIR | Presence | `pir` | digital |
+| LD2410 / RCWL-0516 | Presence radar | `radar` | digital |
+| Reed switch | Door or window | `contact` | digital |
+| Button or switch | Press / release | `button` | digital |
+| Leak probe | Water leak | `leak` | digital |
+| MQ-2, MQ-5… (D0) | Gas or smoke | `gas` | digital |
+| Float switch | Water level | `float` | digital |
+| Rain module (D0) | Rain | `rain` | digital |
+| Any digital output | Flame, soil, sound… (names you choose) | `digital` | digital |
+| Relay, pump, valve, lock, buzzer, gate | On/off actuator | `relay`, `pump`, `valve`, `lock`, `buzzer`, `gate` | 1 pin |
+| LED, fan, motor | Level actuator (PWM) | `led`, `fan`, `motor` | 1 pin |
+| Servo | Position actuator (0–180°) | `servo` | 1 pin |
+| WS2812 strip (up to 60 LEDs) | Colour actuator | `strip` | 1 pin |
+| MAX17048 | Battery gauge | Settings | I2C (0x36) |
 
 ---
 
@@ -347,10 +446,10 @@ The 1 MB flash holds the firmware, a **400 KB OTA reserve** (the next firmware, 
 
 | Item | Size |
 | --- | --- |
-| Firmware | 498,624 of 500,000 bytes (1,376 to spare) |
+| Firmware | 498,336 of 500,000 bytes (1,664 to spare) |
 | Panel text, 4 languages | 337 texts (the pin drawing included), 45 KB as text, 16 KB in flash |
 | Relay Worker | 7.8 KB of script, 4.2 KB in flash (byte-pair encoded) |
-| Signed OTA package | ~354 KB of 400 KB (about 46 KB free) |
+| Signed OTA package | ~368 KB of 400 KB (about 32 KB free) |
 | Embedded images | 1.1 KB pinout (gzipped SVG); the ESP-01 photo is only in this README |
 | Configuration filesystem | 64 KB, unchanged |
 
@@ -406,6 +505,8 @@ Tests run on the computer, with the core simulated; every release also runs on a
 | `pages` | only when `install/` or `tools/web_installer.py` changes on `main`, or on *Run workflow* | Publishes the [web installer](https://allanbarcelos.github.io/esp8266-dns/) to GitHub Pages with a published release's firmware (the new one if the same push releases, otherwise the last). A release alone does not redeploy it: the installer is for the first flash, and the device then updates itself over OTA |
 
 The pipeline runs `plan → check → build → test → release → pages`; if one job fails, the next ones do not run. Without new firmware (docs, workflow, tools), `build`, `test` and `release` are skipped. To force a release, use *Run workflow* with `release: true`.
+
+The **install counter** has a workflow of its own (`.github/workflows/counter.yml`): on a change to `counter/` (or the installer page) it runs the Worker's tests (100 % coverage) and deploys `counter/worker.mjs` to workers.dev through the Cloudflare API, creating its KV namespace on the first run. It needs the `CLOUDFLARE_API_TOKEN` (Account → Workers Scripts → Edit, Account → Workers KV Storage → Edit) and `CLOUDFLARE_ACCOUNT_ID` secrets. The installer page sends one beacon when a flash finishes; the Worker counts it at most once per address per day and keeps neither the address nor anything about the device (only a salted hash, for a day). The badge at the top reads the total.
 
 ---
 

@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Allan Barcelos. ESP8266 IoT: https://github.com/allanbarcelos/esp8266-iot
+
+name: Install counter
+
+# The web installer's install counter (counter/worker.mjs) on workers.dev:
+# its tests, then the Worker and its KV namespace through the Cloudflare
+# API (curl and jq, nothing to install).
+#
+# Secrets: CLOUDFLARE_API_TOKEN (Account → Workers Scripts → Edit and
+# Account → Workers KV Storage → Edit) and CLOUDFLARE_ACCOUNT_ID. The
+# account needs a workers.dev subdomain. The first deploy creates the KV
+# namespace; a deploy never touches the count.
+
+on:
+  push:
+    branches: [main]
+    paths: ['counter/**', '.github/workflows/counter.yml', 'install/index.html']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: counter
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Counter Worker tests (100% lines/functions/branches)
+        run: >-
+          node --test --experimental-test-coverage
+          --test-coverage-include=counter/worker.mjs
+          --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100
+          counter/worker.test.mjs
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      NAME: esp8266-installs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Deploy the Worker
+        run: |
+          set -euo pipefail
+          if [ -z "$CF_TOKEN" ] || [ -z "$CF_ACCOUNT" ]; then
+            echo "::error::Set the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets"
+            exit 1
+          fi
+          API="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT"
+          cf() { curl -sS --fail-with-body -H "Authorization: Bearer $CF_TOKEN" "$@"; }
+
+          # The KV namespace, made on the first deploy
+          ns=$(cf "$API/storage/kv/namespaces?per_page=100" | jq -r --arg t "$NAME" '.result[] | select(.title == $t) | .id')
+          if [ -z "$ns" ]; then
+            ns=$(cf -X POST -H 'Content-Type: application/json' -d "{\"title\":\"$NAME\"}" \
+                 "$API/storage/kv/namespaces" | jq -r .result.id)
+          fi
+
+          # The script, an ES module with its KV binding, on workers.dev
+          jq -n --arg ns "$ns" '{main_module: "worker.mjs", compatibility_date: "2025-06-01",
+              bindings: [{type: "kv_namespace", name: "COUNT", namespace_id: $ns}]}' > "$RUNNER_TEMP/metadata.json"
+          cf -X PUT -F "metadata=@$RUNNER_TEMP/metadata.json;type=application/json" \
+             -F "worker.mjs=@counter/worker.mjs;type=application/javascript+module" \
+             "$API/workers/scripts/$NAME" > /dev/null
+          cf -X POST -H 'Content-Type: application/json' -d '{"enabled": true}' \
+             "$API/workers/scripts/$NAME/subdomain" > /dev/null
+
+          sub=$(cf "$API/workers/subdomain" | jq -r .result.subdomain)
+          url="https://$NAME.$sub.workers.dev"
+          echo "Counter: $url" >> "$GITHUB_STEP_SUMMARY"
+
+          # The installer posts to it and the README's badge reads it
+          grep -qF "$url/install" install/index.html || { echo "::error::install/index.html does not post to $url/install"; exit 1; }
+          grep -qF "$url/badge" README.md || { echo "::error::the README badge does not read $url/badge"; exit 1; }
+          curl -sSf --retry 5 --retry-delay 3 --retry-all-errors "$url/badge"

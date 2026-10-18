@@ -85,6 +85,7 @@ a { color: var(--accent); }
 
     <p class="warn">Erasing the device also erases its configuration (Wi-Fi, Cloudflare, ntfy, IoT).</p>
     <p class="muted">Once installed, the firmware updates itself through signed OTA. Documentation: <a href="https://github.com/allanbarcelos/esp8266-dns/blob/main/README.md">README</a>.</p>
+    <p class="muted">A finished install adds one to a public counter. Nothing about you or the device is sent or kept.</p>
   </section>
 </main>
 <script>
@@ -137,6 +138,22 @@ function readPassword(btn) {
 document.querySelectorAll("[data-read-pass]").forEach(function (b) {
   b.addEventListener("click", function () { readPassword(b); });
 });
+// Install counter (counter/worker.mjs, the README's badge): one beacon when a
+// flash finishes. ESP Web Tools 10.4.0 has no public event for it, so its
+// dialog's state is read while the dialog is open (check on an upgrade).
+var COUNTER = "https://esp8266-installs.allan-d68.workers.dev/install";
+new MutationObserver(function (list) {
+  list.forEach(function (m) {
+    m.addedNodes.forEach(function (d) {
+      if (d.localName !== "ewt-install-dialog") return;
+      var t = setInterval(function () {
+        var s = d._installState;
+        if (s && s.state === "finished") navigator.sendBeacon(COUNTER);
+        if ((s && s.state === "finished") || !d.isConnected) clearInterval(t);
+      }, 1000);
+    });
+  });
+}).observe(document.body, { childList: true });
 fetch("manifest.json").then(function (r) { return r.json(); }).then(function (m) {
   document.querySelectorAll(".version").forEach(function (v) { v.textContent = m.version; });
 }).catch(function () {});
