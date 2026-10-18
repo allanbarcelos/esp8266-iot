@@ -106,8 +106,9 @@ struct Fixture {
     void startOta() {
         MockHTTP::push(200, R"({"tag_name":"v999"})");
         MockHTTP::push(200, std::string(1000, 'X'));
-        ota.tick(OTAService::CHECK_INTERVAL);
-        ota.tick(OTAService::CHECK_INTERVAL + 1); // 512 of 1000 bytes
+        ota.dailyCheck(3600000UL);
+        ota.tick(3600000UL);
+        ota.tick(3600001UL); // 512 of 1000 bytes
     }
 };
 
@@ -1824,23 +1825,38 @@ void test_update_automatic_off() {
 
 void test_update_saves_automatic() {
     Fixture f;
-    f.post("/update/auto", {});
+    f.get("/update");
+    TEST_ASSERT_TRUE(contains(f.out(), "<input name='ota_time' value='09:00' type='time' required>"));
+    f.post("/update/auto", {{"ota_time", "21:30"}});
     TEST_ASSERT_EQUAL(200, f.srv.code);
     TEST_ASSERT_FALSE(cfg.ota_auto);
     TEST_ASSERT_FALSE(f.ota.automatic());
+    TEST_ASSERT_EQUAL(21 * 60 + 30, cfg.ota_time);
     TEST_ASSERT_TRUE(contains(f.out(), "off"));
-    TEST_ASSERT_TRUE(contains(MockFS::files["/config.json"], "\"ota\":false"));
+    TEST_ASSERT_TRUE(contains(MockFS::files["/config.json"], "\"ota\":false,\"otm\":1290"));
 
-    f.post("/update/auto", {{"ota_auto", "1"}});
+    f.post("/update/auto", {{"ota_auto", "1"}, {"ota_time", "06:05"}});
     TEST_ASSERT_TRUE(cfg.ota_auto);
     TEST_ASSERT_TRUE(f.ota.automatic());
     TEST_ASSERT_TRUE(contains(f.out(), "on"));
+    f.get("/update");
+    TEST_ASSERT_TRUE(contains(f.out(), "value='06:05'"));
+
+    // No time, or not a time: refused, nothing changes
+    const char* bad[] = {"", "24:00", "9h"};
+    for (const char* v : bad) {
+        f.post("/update/auto", {{"ota_time", v}});
+        TEST_ASSERT_EQUAL(400, f.srv.code);
+        TEST_ASSERT_TRUE(contains(f.out(), "Invalid time"));
+    }
+    TEST_ASSERT_TRUE(cfg.ota_auto);
+    TEST_ASSERT_EQUAL(6 * 60 + 5, cfg.ota_time);
 }
 
 void test_update_auto_write_fails() {
     Fixture f;
     MockFS::failWriteOpen = true;
-    f.post("/update/auto", {{"ota_auto", "1"}});
+    f.post("/update/auto", {{"ota_auto", "1"}, {"ota_time", "09:00"}});
     TEST_ASSERT_EQUAL(400, f.srv.code);
     TEST_ASSERT_TRUE(contains(f.out(), "Could not save"));
 }

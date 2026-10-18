@@ -111,10 +111,7 @@ public:
     // while the relay is asked: the turn would close it.
     bool wantsNet(unsigned long now) const {
         if (_waitingRelay(now)) return false;
-        if (busy()) return true;
-        if (!_automatic || now >= DEADLINE) return false;
-        if (_lastCheck == 0) return now >= FIRST_CHECK;
-        return now - _lastCheck >= CHECK_INTERVAL;
+        return busy();
     }
 
     void begin() {
@@ -126,23 +123,28 @@ public:
         if (!_slim) _loadResult();
     }
 
-    // The latest release seen another way (the remote access relay's Worker
-    // asks GitHub): if it is not newer, it counts as this hour's check; a
-    // newer one makes the device's own check (which also downloads it) due
-    // now, on its network turn.
+    // The latest release from the remote access relay's Worker (it asks
+    // GitHub), when the device asked: it is the check, with no TLS session of
+    // the device's. A newer one is downloaded on the network turn when the
+    // daily check found it. The Worker's hourly news is not asked for: the
+    // device checks once a day.
     void offerLatest(const char* tag, unsigned long now, const char* current = firmware_version) {
-        if (_askRelay && _relaySent) {
-            _askRelay = false;   // "-": the Worker could not tell, the device checks
-            if (parseTag(tag) < 0) return;
-            _wantCheck = false;
-            _lastCheck = now;
-            _checkInstall = false;
-            strlcpy(_latest, tag, sizeof(_latest));
-            _afterCheck(now, current);
-            return;
-        }
-        if (busy() || parseTag(tag) < 0) return;
-        _lastCheck = isNewer(tag, current) ? 0 : now;
+        if (!_askRelay || !_relaySent) return;
+        _askRelay = false;   // "-": the Worker could not tell, the device checks
+        if (parseTag(tag) < 0) return;
+        _wantCheck = false;
+        _checkInstall = false;
+        strlcpy(_latest, tag, sizeof(_latest));
+        _afterCheck(now, current);
+        if (_auto && _available[0] && strcmp(_available, _rejected) != 0) requestInstall();
+    }
+
+    // The daily check (Schedule.h, at the time set on the Update page):
+    // through the relay's Worker when it is up; a newer version is installed
+    void dailyCheck(unsigned long now, bool viaRelay = false) {
+        if (!_automatic || busy()) return;
+        requestCheck(viaRelay, now);
+        _auto = true;
     }
 
     // The POST only arms the request; the tick runs it, or the relay's Worker
@@ -152,6 +154,7 @@ public:
         _wantInstall = false;
         _nextRetry = 0;
         _wantCheck = true;
+        _auto = false;
         _askRelay = viaRelay;
         _relaySent = false;
         _askedAt = now;
@@ -208,19 +211,8 @@ public:
             _wantCheck = false;
             _nextRetry = 0;
             // Recovery: the check exists to finish the OTA, with no panel.
-            _checkNow(now, _slim);
-            return;
+            _checkNow(now, _slim || _auto);
         }
-
-        if (!_automatic) return;
-        if (now >= DEADLINE) return;
-        if (_lastCheck == 0) {
-            if (now < FIRST_CHECK) return;
-        } else if (now - _lastCheck < CHECK_INTERVAL) return;
-
-        _lastCheck = now;
-        _nextRetry = 0;
-        _checkNow(now, true);
     }
 
     // Tags in the "vN" format. A local build ("dev") accepts any valid tag.
@@ -267,7 +259,6 @@ public:
         return (int)(_written * 100UL / (size_t)_contentLength);
     }
 
-    static constexpr unsigned long FIRST_CHECK    = 20000UL;    // first check after boot
     static constexpr unsigned long RELAY_WAIT     = 15000UL;    // the Worker's answer to a check
     // Texts used in more than one place (each PSTR is its own copy in flash)
     static constexpr char T_NO_MEM[] PROGMEM = "Not enough memory";
@@ -277,8 +268,6 @@ public:
     static constexpr char T_GITHUB[] PROGMEM = "Invalid response from GitHub";
     static constexpr char T_SIZE[] PROGMEM = "Invalid firmware size";
     static constexpr char T_RECOVERED[] PROGMEM = "OTA: recovery done, restoring the panel";
-    static constexpr unsigned long CHECK_INTERVAL = 3600000UL;  // 1 hour
-    static constexpr unsigned long DEADLINE       = 82800000UL; // ~23 h
     static constexpr unsigned long STALL_TIMEOUT  = 60000UL;    // no data for 60 s
     static constexpr unsigned long READ_TIMEOUT   = 15000UL;    // HTTP response stalled
     static constexpr unsigned long RETRY_MS       = 10000UL;
@@ -315,6 +304,7 @@ private:
     bool             _slim          = false;
     bool             _askRelay      = false;   // the panel's check goes to the relay first
     bool             _relaySent     = false;   // and the relay asked its Worker
+    bool             _auto          = false;   // the daily check: installs what it finds
     unsigned long    _askedAt       = 0;       // when the panel asked
     bool             _unknownLen    = false;
     Report           _report        = Report::None;
@@ -324,7 +314,6 @@ private:
     TlsClient        _client;
     int              _contentLength = 0;
     size_t           _written       = 0;
-    unsigned long    _lastCheck     = 0;
     unsigned long    _lastProgress  = 0;
     unsigned long    _nextRetry     = 0;
     unsigned long    _retryDelay    = 0;

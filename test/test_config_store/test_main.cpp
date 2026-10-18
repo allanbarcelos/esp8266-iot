@@ -297,7 +297,7 @@ void test_v2_names_are_read() {
         R"("ntc":"ntc8","ntk":"ntk9","ntp":11,"nth":"nth11",)"
         R"("mqh":"mqh12","mqu":"mqu13","mqp":"mqp14","nam":"nam15",)"
         R"("hnm":"hnm16","hst":"hst17","tzo":19,"bat":20,)"
-        R"("lng":"pt","ota":false,"api":"api22","cft":"cft23",)"
+        R"("lng":"pt","ota":false,"otm":540,"api":"api22","cft":"cft23",)"
         R"("cfz":"cfz24","cfh":"cfh25","cfr":"cfr26","cfa":"cfa27",)"
         R"("rlh":"rlh28","rlk":"rlk29","rlv":31,"rln":"rln31",)"
         R"("rlz":"rlz32","sen":"sen33","spn":35,"shi":false,)"

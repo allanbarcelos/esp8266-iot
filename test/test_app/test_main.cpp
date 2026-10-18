@@ -338,6 +338,30 @@ void test_tick_pauses_mqtt_for_the_version_check() {
     TEST_ASSERT_EQUAL_STRING("paused", app.mqtt.status());
 }
 
+// The update check runs once a day at the time set (the host's clock is
+// set: the time is now), not right after boot
+void test_tick_runs_the_daily_update_check() {
+    MockFS::put("/config.json", R"({"ssid":"Home","pass":"12345678","webpss":"strong-pass"})");
+    App app;
+    app.begin();
+    app.config.ota_time = (uint16_t)(time(nullptr) % 86400 / 60);
+    setMillis(1000);
+    app.tick();
+    TEST_ASSERT_FALSE(app.ota.pending());
+    MockHTTP::push(200, R"({"tag_name":"dev"})");
+    setMillis(3600000UL);
+    app.tick();
+    auto github = [] {
+        int n = 0;
+        for (const std::string& u : MockHTTP::calledURLs) n += contains(u, "api.github.com");
+        return n;
+    };
+    TEST_ASSERT_EQUAL(1, github());
+    setMillis(3700000UL);
+    app.tick();
+    TEST_ASSERT_EQUAL(1, github());   // once a day
+}
+
 // Short of heap, a turn waits instead of failing, with MQTT paused
 void test_tick_waits_for_memory_before_a_check() {
     MockFS::put("/config.json", R"({"ssid":"Home","pass":"12345678","webpss":"strong-pass",
@@ -439,6 +463,7 @@ int main() {
     RUN_TEST(test_tick_falls_back_to_the_ntfy_stream);
     RUN_TEST(test_tick_pauses_mqtt_for_the_version_check);
     RUN_TEST(test_tick_waits_for_memory_before_a_check);
+    RUN_TEST(test_tick_runs_the_daily_update_check);
     RUN_TEST(test_tick_relay_waits_and_slow_loops_are_logged);
     RUN_TEST(test_tick_open_stream_goes_on);
     return UNITY_END();

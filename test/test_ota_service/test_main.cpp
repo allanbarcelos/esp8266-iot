@@ -18,7 +18,7 @@ struct Fixture {
     OTAService  ota{logger, wifi};
 };
 
-static const unsigned long T = OTAService::CHECK_INTERVAL;
+static const unsigned long T = 3600000UL;   // the daily check, armed at an hour of uptime
 
 // Queues a version check + a download of `size` bytes
 static void queueUpdate(const std::string& body, int size = -1) {
@@ -50,40 +50,57 @@ void test_is_newer() {
 
 // ── scheduling ───────────────────────────────────────────────────────────────
 
-void test_no_check_before_interval() {
+// Only the daily check (App, Schedule.h) or the panel start one: no timer here
+void test_no_check_without_the_daily_one() {
     Fixture f;
     f.ota.tick(0);
-    f.ota.tick(OTAService::FIRST_CHECK - 1);
+    f.ota.tick(T);
+    f.ota.tick(30 * T);
     TEST_ASSERT_EQUAL(0, (int)MockHTTP::calledURLs.size());
+    TEST_ASSERT_FALSE(f.ota.wantsNet(30 * T));
 }
 
-void test_first_automatic_check() {
+// Automatic update off: the daily check is not made
+void test_daily_check_needs_automatic() {
     Fixture f;
-    MockHTTP::push(200, R"({"tag_name":"dev"})");
-    f.ota.tick(OTAService::FIRST_CHECK);
+    f.ota.setAutomatic(false);
+    f.ota.dailyCheck(T);
+    f.ota.tick(T);
+    TEST_ASSERT_EQUAL(0, (int)MockHTTP::calledURLs.size());
+    // Nor over a check already under way (the panel's stays as it was)
+    f.ota.setAutomatic(true);
+    f.ota.requestCheck();
+    f.ota.dailyCheck(T);
+    MockHTTP::push(200, R"({"tag_name":"v999"})");
+    f.ota.tick(T);
     TEST_ASSERT_EQUAL(1, (int)MockHTTP::calledURLs.size());
-    TEST_ASSERT_TRUE(contains(MockHTTP::calledURLs[0], "releases/latest"));
-    TEST_ASSERT_FALSE(f.ota.inProgress());
+    TEST_ASSERT_EQUAL_STRING("v999", f.ota.availableVersion());
+    TEST_ASSERT_FALSE(f.ota.inProgress());   // the panel's: found, not installed
 }
 
 void test_check_after_interval() {
     Fixture f;
     MockHTTP::push(200, R"({"tag_name":"dev"})");
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_EQUAL(1, (int)MockHTTP::calledURLs.size());
     TEST_ASSERT_TRUE(contains(MockHTTP::calledURLs[0], "releases/latest"));
     TEST_ASSERT_FALSE(f.ota.inProgress());
 }
 
-void test_no_check_after_deadline() {
+// The daily check installs what it finds
+void test_daily_check_installs() {
     Fixture f;
-    f.ota.tick(OTAService::DEADLINE);
-    TEST_ASSERT_EQUAL(0, (int)MockHTTP::calledURLs.size());
+    queueUpdate(std::string(1000, 'X'));
+    f.ota.dailyCheck(T);
+    f.ota.tick(T);
+    TEST_ASSERT_TRUE(f.ota.inProgress());
 }
 
 void test_no_check_with_restart_pending() {
     Fixture f;
     f.wifi.scheduleRestart(1000);
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_EQUAL(0, (int)MockHTTP::calledURLs.size());
 }
@@ -91,6 +108,7 @@ void test_no_check_with_restart_pending() {
 void test_no_check_without_wifi() {
     Fixture f;
     WiFi._status = WL_DISCONNECTED;
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_EQUAL(0, (int)MockHTTP::calledURLs.size());
 }
@@ -100,6 +118,7 @@ void test_no_check_without_wifi() {
 void test_api_connection_fails() {
     Fixture f;
     MockTLS::failConnect = true;
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "Version check failed"));
 }
@@ -107,6 +126,7 @@ void test_api_connection_fails() {
 void test_api_http_error() {
     Fixture f;
     MockHTTP::push(403);
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "Version HTTP error: 403"));
 }
@@ -114,6 +134,7 @@ void test_api_http_error() {
 void test_api_invalid_json() {
     Fixture f;
     MockHTTP::push(200, "{not json");
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "Version JSON error"));
 }
@@ -121,6 +142,7 @@ void test_api_invalid_json() {
 void test_empty_tag() {
     Fixture f;
     MockHTTP::push(200, R"({"tag_name":"  "})");
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_EQUAL(1, (int)MockHTTP::calledURLs.size());
     TEST_ASSERT_FALSE(f.ota.inProgress());
@@ -131,6 +153,7 @@ void test_empty_tag() {
 void test_starts_ota_with_the_build_file() {
     Fixture f;
     queueUpdate(std::string(1024, 'X'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
 
     TEST_ASSERT_TRUE(f.ota.inProgress());
@@ -329,6 +352,7 @@ void test_download_connection_fails() {
     Fixture f;
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockTLS::failOnConnect = 2;
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "Could not start OTA"));
     TEST_ASSERT_FALSE(f.ota.inProgress());
@@ -338,6 +362,7 @@ void test_download_http_error() {
     Fixture f;
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockHTTP::push(404);
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "OTA HTTP error: 404"));
     TEST_ASSERT_FALSE(f.ota.inProgress());
@@ -346,6 +371,7 @@ void test_download_http_error() {
 void test_invalid_size() {
     Fixture f;
     queueUpdate("");
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "Invalid firmware size"));
     TEST_ASSERT_FALSE(f.ota.inProgress());
@@ -355,6 +381,7 @@ void test_no_room() {
     Fixture f;
     Update._beginOk = false;
     queueUpdate(std::string(100, 'X'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "No room for OTA"));
     TEST_ASSERT_FALSE(f.ota.inProgress());
@@ -365,6 +392,7 @@ void test_no_room() {
 void test_full_stream_schedules_restart() {
     Fixture f;
     queueUpdate(std::string(1024, 'X'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
 
     f.ota.tick(T + 1);
@@ -383,6 +411,7 @@ void test_full_stream_schedules_restart() {
 void test_progress_logged_every_10_percent() {
     Fixture f;
     queueUpdate(std::string(512 * 40, 'X'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     for (int i = 1; i <= 3; i++) f.ota.tick(T + i); // 3/40 = 7.5%
     TEST_ASSERT_FALSE(logHas(logger, "OTA: 0%"));
@@ -394,6 +423,7 @@ void test_invalid_signature_does_not_restart() {
     Fixture f;
     Update._endOk = false;
     queueUpdate(std::string(100, 'X'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     f.ota.tick(T + 1);
     TEST_ASSERT_FALSE(f.ota.inProgress());
@@ -405,6 +435,7 @@ void test_write_error_aborts() {
     Fixture f;
     Update._shortWrite = true;
     queueUpdate(std::string(1024, 'X'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     f.ota.tick(T + 1);
     TEST_ASSERT_FALSE(f.ota.inProgress());
@@ -415,6 +446,7 @@ void test_write_error_aborts() {
 void test_wifi_drops_during_ota() {
     Fixture f;
     queueUpdate(std::string(1024, 'X'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     WiFi._status = WL_DISCONNECTED;
     f.ota.tick(T + 1);
@@ -428,6 +460,7 @@ void test_wifi_drops_during_ota() {
 void test_stalled_stream_aborts_on_timeout() {
     Fixture f;
     queueUpdate(std::string(512, 'X'), 4096); // the server promises 4096, sends 512
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     f.ota.tick(T + 1);                         // consumes the 512 bytes
     f.ota.tick(T + 1 + OTAService::STALL_TIMEOUT);
@@ -442,6 +475,7 @@ void test_stalled_stream_aborts_on_timeout() {
 void test_automatic_off_does_not_check() {
     Fixture f;
     f.ota.setAutomatic(false);
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_FALSE(f.ota.automatic());
     TEST_ASSERT_EQUAL(0, (int)MockHTTP::calledURLs.size());
@@ -574,6 +608,7 @@ void test_install_without_version_is_ignored() {
     f.ota.requestInstall();
     TEST_ASSERT_FALSE(f.ota.pending());
     TEST_ASSERT_EQUAL(OTAService::Report::None, f.ota.report());
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_EQUAL(0, (int)MockHTTP::calledURLs.size());
 }
@@ -582,6 +617,7 @@ void test_requests_ignored_during_download() {
     Fixture f;
     Update._endOk = false;
     queueUpdate(std::string(1024, 'X'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(f.ota.inProgress());
     f.ota.requestCheck();
@@ -618,6 +654,7 @@ void test_wifi_drops_with_request_pending() {
 void test_check_not_enough_memory() {
     Fixture f;
     ESP._heap = OTAService::GITHUB_HEAP - 1;
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_EQUAL(0, (int)MockHTTP::calledURLs.size());
     TEST_ASSERT_TRUE(logHas(logger, "OTA: not enough memory"));
@@ -629,6 +666,7 @@ void test_check_not_enough_memory() {
 void test_check_block_too_small() {
     Fixture f;
     ESP._maxBlock = OTAService::GITHUB_BLOCK - 1;
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_EQUAL(0, (int)MockHTTP::calledURLs.size());
     TEST_ASSERT_TRUE(logHas(logger, "OTA: not enough memory"));
@@ -638,6 +676,7 @@ void test_check_block_too_small() {
 void test_check_tls_unavailable() {
     MockTLS::nullOwned = true;
     Fixture f;
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_EQUAL(0, (int)MockHTTP::calledURLs.size());
     TEST_ASSERT_EQUAL_STRING("Retrying in 10 s", f.ota.detail());
@@ -663,6 +702,7 @@ void test_download_tls_unavailable() {
     Fixture f;
     MockTLS::failOnConnect = 2;
     queueUpdate(std::string(64, 'X'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_FALSE(f.ota.inProgress());
     TEST_ASSERT_EQUAL_STRING("v999", f.ota.availableVersion());
@@ -674,6 +714,7 @@ void test_download_tls_unavailable() {
 void test_no_new_check_during_ota() {
     Fixture f;
     queueUpdate(std::string(512, 'X'), 4096);
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     f.ota.tick(T + 1);
     size_t before = MockHTTP::calledURLs.size();
@@ -697,6 +738,7 @@ void test_success_deletes_request() {
 void test_github_uses_large_tls_buffer() {
     Fixture f;
     queueUpdate(std::string(1024, 'X'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_EQUAL(16384, MockTLS::bufIn);
     TEST_ASSERT_EQUAL(512, MockTLS::bufOut);
@@ -707,6 +749,7 @@ void test_github_uses_large_tls_buffer() {
 void test_retries_after_backoff() {
     Fixture f;
     MockHTTP::push(403);
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(f.ota.pending());
     TEST_ASSERT_EQUAL(1, (int)MockHTTP::calledURLs.size());
@@ -721,6 +764,7 @@ void test_unknown_size_completes_at_end_of_stream() {
     Fixture f;
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockHTTP::push(200, std::string(600, 'Y'), -2);
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(f.ota.inProgress());
     TEST_ASSERT_EQUAL(0, f.ota.progressPercent());
@@ -738,6 +782,7 @@ void test_unknown_size_waits_for_connection() {
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockHTTP::push(200, std::string(512, 'Y'), -2);
     MockHTTP::keepOpen = true;
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     f.ota.tick(T + 1);
     TEST_ASSERT_TRUE(f.ota.inProgress());
@@ -754,6 +799,7 @@ void test_unknown_size_empty_aborts() {
     Fixture f;
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockHTTP::push(200, "", -2);
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(f.ota.inProgress());
     f.ota.tick(T + 1);
@@ -882,12 +928,14 @@ void test_rejected_image_is_not_downloaded_again() {
     Fixture f;
     Update._endOk = false;
     queueUpdate(std::string(100, 'X'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     f.ota.tick(T + 1);
     TEST_ASSERT_TRUE(logHas(logger, "OTA error"));
     size_t calls = MockHTTP::calledURLs.size();
 
     MockHTTP::push(200, R"({"tag_name":"v999"})");
+    f.ota.dailyCheck(2 * T + 1);
     f.ota.tick(2 * T + 1);
     TEST_ASSERT_EQUAL((int)calls + 1, (int)MockHTTP::calledURLs.size());
     TEST_ASSERT_FALSE(f.ota.inProgress());
@@ -958,6 +1006,7 @@ void test_new_version_ignores_old_rejection() {
     Fixture f;
     f.ota.begin();
     queueUpdate(std::string(64, 'X'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(f.ota.inProgress());
 }
@@ -967,10 +1016,12 @@ void test_rejection_without_fs_stays_in_ram() {
     Update._endOk = false;
     MockFS::failWriteOpen = true;
     queueUpdate(std::string(100, 'X'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     f.ota.tick(T + 1);
     TEST_ASSERT_TRUE(logHas(logger, "OTA: could not save the rejected version"));
     MockHTTP::push(200, R"({"tag_name":"v999"})");
+    f.ota.dailyCheck(2 * T + 1);
     f.ota.tick(2 * T + 1);
     TEST_ASSERT_FALSE(f.ota.inProgress());
     TEST_ASSERT_TRUE(logHas(logger, "OTA: v999 was already rejected"));
@@ -1057,6 +1108,7 @@ void test_unknown_size_no_room() {
     ESP._freeSketch = 0;
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockHTTP::push(200, std::string(64, 'Z'), -2);
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_FALSE(f.ota.inProgress());
     TEST_ASSERT_TRUE(logHas(logger, "No room for OTA"));
@@ -1067,6 +1119,7 @@ void test_follows_absolute_redirect() {
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockHTTP::push(302, "", -1, "https://cdn.example:443/fw.bin");
     MockHTTP::push(200, std::string(128, 'X'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(f.ota.inProgress());
     TEST_ASSERT_TRUE(logHas(logger, "OTA redirect 302"));
@@ -1079,6 +1132,7 @@ void test_follows_relative_redirect() {
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockHTTP::push(301, "", -1, "/rel/fw.bin");
     MockHTTP::push(200, std::string(64, 'Y'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(f.ota.inProgress());
     TEST_ASSERT_TRUE(contains(MockHTTP::calledURLs.back(), "/rel/fw.bin"));
@@ -1088,6 +1142,7 @@ void test_invalid_redirect() {
     Fixture f;
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockHTTP::push(307, "", -1, "http://cdn.example/fw.bin");
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "OTA: invalid redirect"));
     TEST_ASSERT_FALSE(f.ota.inProgress());
@@ -1097,6 +1152,7 @@ void test_redirect_without_location() {
     Fixture f;
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockHTTP::push(308);
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "OTA: redirect without Location"));
     TEST_ASSERT_FALSE(f.ota.inProgress());
@@ -1107,6 +1163,7 @@ void test_too_many_redirects() {
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     for (int i = 0; i < 5; i++)
         MockHTTP::push(302, "", -1, "https://cdn.example/fw.bin");
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "OTA: too many redirects"));
     TEST_ASSERT_FALSE(f.ota.inProgress());
@@ -1116,6 +1173,7 @@ void test_incomplete_headers() {
     Fixture f;
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockHTTP::rawHttp = "HTTP/1.0 200 OK\r\nContent-Length: 4";
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "OTA: incomplete headers"));
 }
@@ -1124,6 +1182,7 @@ void test_invalid_http_status() {
     Fixture f;
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockHTTP::rawHttp = "NOTHTTP 200\r\n\r\n";
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "OTA: incomplete headers"));
 }
@@ -1132,6 +1191,7 @@ void test_status_without_code() {
     Fixture f;
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockHTTP::rawHttp = "HTTP/1.0\r\n\r\n";
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "OTA: incomplete headers"));
 }
@@ -1142,6 +1202,7 @@ void test_cdn_uses_mfln() {
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockHTTP::push(302, "", -1, "https://cdn.example/fw.bin");
     MockHTTP::push(200, std::string(32, 'Z'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(f.ota.inProgress());
     TEST_ASSERT_EQUAL(4096, MockTLS::bufIn);
@@ -1152,6 +1213,7 @@ void test_redirect_without_path() {
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockHTTP::push(303, "", -1, "https://cdn.example");
     MockHTTP::push(200, std::string(32, 'Q'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(f.ota.inProgress());
     TEST_ASSERT_TRUE(contains(MockHTTP::calledURLs.back(), "cdn.example/"));
@@ -1162,6 +1224,7 @@ void test_redirect_long_host() {
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     std::string loc = "https://" + std::string(80, 'a') + "/fw.bin";
     MockHTTP::push(302, "", -1, loc);
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "OTA: invalid redirect"));
 }
@@ -1188,6 +1251,7 @@ void test_check_incomplete_headers() {
     Fixture f;
     MockHTTP::rawAny = true;
     MockHTTP::rawHttp = "HTTP/1.0 200 OK\r\nContent-Type: x";
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "Version JSON error: headers"));
     TEST_ASSERT_EQUAL_STRING("Retrying in 10 s", f.ota.detail());
@@ -1199,6 +1263,7 @@ void test_block_shrinks_after_tls_buffers() {
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockTLS::shrinkOnBuffers = 2; // 1 = check, 2 = download
     MockTLS::shrinkBlockTo = OTAService::GITHUB_RX + OTAService::TLS_TAIL - 1;
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_FALSE(f.ota.inProgress());
     TEST_ASSERT_EQUAL(1, (int)MockHTTP::calledURLs.size());
@@ -1214,6 +1279,7 @@ void test_read_does_not_block_and_expires_without_data() {
     MockHTTP::keepOpen = true;
     f.ota.requestCheck();
     unsigned long before = millis();
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_EQUAL(before, millis());           // no delay
     TEST_ASSERT_TRUE(f.ota.pending());
@@ -1236,6 +1302,7 @@ void test_response_in_parts_across_ticks() {
     Fixture f;
     queueUpdate(std::string(64, 'X'));
     MockHTTP::keepOpen = true;
+    f.ota.dailyCheck(T);
     f.ota.tick(T);                       // check and the download headers
     TEST_ASSERT_TRUE(f.ota.inProgress()); // the mock delivers everything at once
 
@@ -1244,6 +1311,7 @@ void test_response_in_parts_across_ticks() {
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockHTTP::rawHttp = "HTTP/1.0 302 F\r\nLocation: /cdn\r\n";
     MockHTTP::keepOpen = true;           // incomplete redirect header
+    g.ota.dailyCheck(T);
     g.ota.tick(T);
     TEST_ASSERT_FALSE(g.ota.inProgress());
     TEST_ASSERT_TRUE(g.ota.busy());
@@ -1258,6 +1326,7 @@ void test_header_without_colon_is_ignored() {
     Fixture f;
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockHTTP::rawHttp = "HTTP/1.0 200 OK\r\nNoValue\r\nContent-Length: 4\r\n\r\nXXXX";
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(f.ota.inProgress());
     TEST_ASSERT_EQUAL(4, f.ota.contentLength());
@@ -1276,6 +1345,7 @@ void test_download_without_memory_for_the_path() {
     Fixture f;
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     mock::failMallocSize = OTAService::OTA_PATH_CAP;
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_FALSE(f.ota.inProgress());
     TEST_ASSERT_EQUAL(1, (int)MockHTTP::calledURLs.size());
@@ -1295,6 +1365,7 @@ static void rawDownload(const std::string& http) {
 void test_cut_status() {
     Fixture f;
     rawDownload("HTTP/1.0 200 OK");
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "OTA: incomplete headers"));
 }
@@ -1305,6 +1376,7 @@ void test_status_with_invalid_code() {
         setUp();
         Fixture f;
         rawDownload(line);
+        f.ota.dailyCheck(T);
         f.ota.tick(T);
         TEST_ASSERT_TRUE(logHas(logger, "OTA: incomplete headers"));
     }
@@ -1313,6 +1385,7 @@ void test_status_with_invalid_code() {
 void test_long_status_is_truncated() {
     Fixture f;
     rawDownload("HTTP/1.0 200 " + std::string(40, 'O') + "\r\nContent-Length: 4\r\n\r\nXXXX");
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(f.ota.inProgress());
     TEST_ASSERT_EQUAL(4, f.ota.contentLength());
@@ -1321,6 +1394,7 @@ void test_long_status_is_truncated() {
 void test_header_cut_after_colon() {
     Fixture f;
     rawDownload("HTTP/1.0 200 OK\r\nX:");
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "OTA: incomplete headers"));
 }
@@ -1328,6 +1402,7 @@ void test_header_cut_after_colon() {
 void test_header_with_tab_after_colon() {
     Fixture f;
     rawDownload("HTTP/1.0 200 OK\r\nContent-Length:\t4\r\n\r\nXXXX");
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_EQUAL(4, f.ota.contentLength());
 }
@@ -1335,6 +1410,7 @@ void test_header_with_tab_after_colon() {
 void test_long_header_name() {
     Fixture f;
     rawDownload("HTTP/1.0 200 OK\r\n" + std::string(40, 'H') + ": v\r\nContent-Length: 4\r\n\r\nXXXX");
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(f.ota.inProgress());
     TEST_ASSERT_EQUAL(4, f.ota.contentLength());
@@ -1343,6 +1419,7 @@ void test_long_header_name() {
 void test_long_content_length_is_truncated() {
     Fixture f;
     rawDownload("HTTP/1.0 200 OK\r\nContent-Length: " + std::string(40, '0') + "\r\n\r\n");
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "Invalid firmware size"));
 }
@@ -1351,6 +1428,7 @@ void test_long_location_is_truncated() {
     Fixture f;
     rawDownload("HTTP/1.0 302 F\r\nLocation: /" + std::string(1300, 'a') + "\r\n\r\n");
     MockHTTP::push(200, std::string(32, 'Z'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(f.ota.inProgress());
     std::string expected = "https://github.com/" + std::string(OTAService::OTA_PATH_CAP - 2, 'a');
@@ -1361,6 +1439,7 @@ void test_first_location_wins() {
     Fixture f;
     rawDownload("HTTP/1.0 302 F\r\nLocation: /a\r\nLocation: /b\r\n\r\n");
     MockHTTP::push(200, std::string(32, 'Z'));
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(f.ota.inProgress());
     TEST_ASSERT_EQUAL_STRING("https://github.com/a", MockHTTP::calledURLs.back().c_str());
@@ -1370,6 +1449,7 @@ void test_redirect_without_host() {
     Fixture f;
     MockHTTP::push(200, R"({"tag_name":"v999"})");
     MockHTTP::push(302, "", -1, "https:///fw.bin");
+    f.ota.dailyCheck(T);
     f.ota.tick(T);
     TEST_ASSERT_TRUE(logHas(logger, "OTA: invalid redirect"));
 }
@@ -1428,42 +1508,59 @@ void test_malformed_tag() {
 // ntfy releases TLS when OTA will check or download
 void test_wants_net_follows_the_schedule() {
     Fixture f;
-    TEST_ASSERT_FALSE(f.ota.wantsNet(OTAService::FIRST_CHECK - 1));
-    TEST_ASSERT_TRUE(f.ota.wantsNet(OTAService::FIRST_CHECK));
-    TEST_ASSERT_FALSE(f.ota.wantsNet(OTAService::DEADLINE));
-
+    TEST_ASSERT_FALSE(f.ota.wantsNet(T));
+    f.ota.dailyCheck(T);
+    TEST_ASSERT_TRUE(f.ota.wantsNet(T));
     MockHTTP::push(200, R"({"tag_name":"dev"})");
-    f.ota.tick(OTAService::FIRST_CHECK);
-    TEST_ASSERT_FALSE(f.ota.wantsNet(OTAService::FIRST_CHECK + T - 1));
-    TEST_ASSERT_TRUE(f.ota.wantsNet(OTAService::FIRST_CHECK + T));
+    f.ota.tick(T);
+    TEST_ASSERT_FALSE(f.ota.wantsNet(2 * T));
 
     f.ota.setAutomatic(false);
-    TEST_ASSERT_FALSE(f.ota.wantsNet(OTAService::FIRST_CHECK + T));
     f.ota.requestCheck();                              // request from the panel
     TEST_ASSERT_TRUE(f.ota.wantsNet(0));
 }
 
-// The relay's Worker saw the latest release: not newer, that hour's check is
-// done; newer, the device's own check (which downloads it) is due now
+// The Worker's hourly news of the latest release, unasked: the device
+// checks once a day, so it changes nothing
 void test_latest_offered_by_the_relay() {
     Fixture f;
-    f.ota.offerLatest("v150", OTAService::FIRST_CHECK, "v150");
-    TEST_ASSERT_FALSE(f.ota.wantsNet(OTAService::FIRST_CHECK + T - 1));
-    TEST_ASSERT_TRUE(f.ota.wantsNet(OTAService::FIRST_CHECK + T));
-    f.ota.offerLatest("v151", OTAService::FIRST_CHECK + 10, "v150");
-    TEST_ASSERT_TRUE(f.ota.wantsNet(OTAService::FIRST_CHECK + 10));
-    // Not a release tag, or a check already under way: ignored
-    f.ota.offerLatest("v150", 5000, "v150");
-    f.ota.offerLatest("latest", 6000, "v150");
-    TEST_ASSERT_FALSE(f.ota.wantsNet(OTAService::FIRST_CHECK + 20));   // still 5000
-    f.ota.requestCheck();
-    f.ota.offerLatest("v150", 9000, "v150");
-    TEST_ASSERT_TRUE(f.ota.pending());
+    f.ota.offerLatest("v151", T, "v150");
+    f.ota.offerLatest("latest", T, "v150");
+    TEST_ASSERT_FALSE(f.ota.wantsNet(T));
+    TEST_ASSERT_EQUAL_STRING("", f.ota.availableVersion());
     TEST_ASSERT_EQUAL(0, (int)MockHTTP::calledURLs.size());
-    // From the build's own version by default ("dev": every release is newer)
+}
+
+// The daily check with the relay up: the Worker's answer is the check. Newer
+// is downloaded on the network turn; the same, or rejected, is not
+void test_daily_check_through_the_relay() {
+    Fixture f;
+    f.ota.dailyCheck(T, true);
+    TEST_ASSERT_TRUE(f.ota.relayCheckWanted());
+    f.ota.relayAsked();
+    f.ota.offerLatest("v150", T + 1, "v150");
+    TEST_ASSERT_FALSE(f.ota.pending());
+    TEST_ASSERT_TRUE(f.ota.report() == OTAService::Report::UpToDate);
+
+    f.ota.dailyCheck(2 * T, true);
+    f.ota.relayAsked();
+    f.ota.offerLatest("v151", 2 * T + 1, "v150");
+    TEST_ASSERT_EQUAL_STRING("v151", f.ota.availableVersion());
+    TEST_ASSERT_TRUE(f.ota.wantsNet(2 * T + 1));
+    TEST_ASSERT_EQUAL(0, (int)MockHTTP::calledURLs.size());
+    MockHTTP::push(200, std::string(1000, 'X'));
+    f.ota.tick(2 * T + 2);
+    TEST_ASSERT_TRUE(f.ota.inProgress());
+    // A version rejected before: shown, not downloaded again
+    setUp();
+    MockFS::put("/ota.rejected", "v151");
     Fixture g;
-    g.ota.offerLatest("v1", 100);
-    TEST_ASSERT_TRUE(g.ota.wantsNet(OTAService::FIRST_CHECK));
+    g.ota.begin();
+    g.ota.dailyCheck(T, true);
+    g.ota.relayAsked();
+    g.ota.offerLatest("v151", T + 1, "v150");
+    TEST_ASSERT_EQUAL_STRING("v151", g.ota.availableVersion());
+    TEST_ASSERT_FALSE(g.ota.pending());
 }
 
 int main() {
@@ -1471,11 +1568,12 @@ int main() {
     RUN_TEST(test_parse_tag);
     RUN_TEST(test_is_newer);
     RUN_TEST(test_tagged_hash_binds_the_version);
-    RUN_TEST(test_no_check_before_interval);
-    RUN_TEST(test_first_automatic_check);
+    RUN_TEST(test_no_check_without_the_daily_one);
+    RUN_TEST(test_daily_check_needs_automatic);
+    RUN_TEST(test_daily_check_through_the_relay);
     RUN_TEST(test_latest_offered_by_the_relay);
     RUN_TEST(test_check_after_interval);
-    RUN_TEST(test_no_check_after_deadline);
+    RUN_TEST(test_daily_check_installs);
     RUN_TEST(test_no_check_with_restart_pending);
     RUN_TEST(test_no_check_without_wifi);
     RUN_TEST(test_api_connection_fails);

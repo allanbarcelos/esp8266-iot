@@ -27,6 +27,7 @@ Each service is a header with dependencies injected by reference, composed in la
 | `Password.h`         | Panel password as PBKDF2-HMAC-SHA1 with a random salt                            |
 | `Logger.h`           | Ring buffer of log lines (Serial + panel)                                        |
 | `Clock.h`            | SNTP wall clock (required to validate TLS certificates)                          |
+| `Schedule.h`         | Once a day at a local time, on chosen days of the week (update check, restart)   |
 | `Totp.h`             | Authenticator codes (RFC 6238): HMAC-SHA1 from BearSSL, 30 s, 6 digits           |
 | `TlsTrim.h`          | Leaves unused BearSSL and C runtime code out of the firmware (sketch only)       |
 | `TlsClient.h`        | TLS client (small buffers, ECDHE + AES-GCM) and one-shot HTTPS requests, body in parts |
@@ -316,8 +317,8 @@ GitHub Releases ──(vN)──► ESP8266
                         over SHA-256(SHA-256(gzip) || tag)
 ```
 
-- Hourly (up to ~23 h of uptime) it queries `releases/latest`. It only installs `vN` tags **greater** than the current one, and the signature names the tag: the device checks it against the version it asked for, so an older release cannot be served under a newer tag (the GitHub connection itself is not validated).
-- A build that embeds `public.key` makes the core `Updater` **verify the signature** in `Update.end()` and store only the gzip. Manual install downloads the same file as the hourly check: `firmware.tagged.bin` when the key is in the build, `firmware.bin` when it is not. Releases still carry `firmware.signed.bin` (signed over the image alone) for devices from before the tagged signature. The bootloader reads the uncompressed size from the last 4 bytes; on the signed file those bytes are the signature length, and storing that trailer corrupts the sketch.
+- Once a day, at the time set on the **Update** page (09:00 local by default; every 24 h of uptime until the clock is set), it queries `releases/latest`, through the relay's Worker when the relay is up. **Check now** asks at any time. It only installs `vN` tags **greater** than the current one, and the signature names the tag: the device checks it against the version it asked for, so an older release cannot be served under a newer tag (the GitHub connection itself is not validated).
+- A build that embeds `public.key` makes the core `Updater` **verify the signature** in `Update.end()` and store only the gzip. Manual install downloads the same file as the daily check: `firmware.tagged.bin` when the key is in the build, `firmware.bin` when it is not. Releases still carry `firmware.signed.bin` (signed over the image alone) for devices from before the tagged signature. The bootloader reads the uncompressed size from the last 4 bytes; on the signed file those bytes are the signature length, and storing that trailer corrupts the sketch.
 - The gzip is padded (FNAME field) to a multiple of 4 bytes: the core `Updater` hashes in 4-byte reads and silently fails on a tail of another size.
 - PlatformIO embeds `public.key` before compilation (`pre:tools/embed_pubkey.py`), the same way arduino-cli does in CI. The link fails if the ELF lacks the verifier and that key.
 - The linker script `ld/eagle.flash.1m64.ota.ld` shortens IROM by **400 KB**. That hole sits against the filesystem and the sketch can never occupy it; a firmware that grows past the cap fails at link time. `package_ota.py` also rejects a gzip/signature larger than the reserve.

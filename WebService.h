@@ -2054,6 +2054,8 @@ private:
 
         _form(P_UPDATE_AUTO);
         _switch(H("ota_auto"), H(L_AUTO_UPDATE), _cfg.ota_auto);
+        char b[8];
+        _input(H(L_CHECK_TIME), H("ota_time"), _hhmm(_cfg.ota_time, b), H("type='time' required"));
         _p(H("<button class='b2'>" L_SAVE "</button></form>"));
 
         _form(P_UPDATE_CHECK);
@@ -2069,6 +2071,12 @@ private:
     void _handleUpdateAuto() {
         if (!_guard()) return;
         if (!_checkCSRF()) return;
+        uint16_t at;
+        if (!parseHhmm(_server.arg("ota_time"), at)) {
+            _errorPage(H(L_INVALID_TIME), P_UPDATE);
+            return;
+        }
+        _cfg.ota_time = at;
         _cfg.ota_auto = _server.arg("ota_auto") == "1";
         _ota.setAutomatic(_cfg.ota_auto);
         if (!_store.save()) {

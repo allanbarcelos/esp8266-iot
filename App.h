@@ -20,6 +20,7 @@
 #include "WebService.h"
 #include "RelayService.h"
 #include "NetArbiter.h"
+#include "Schedule.h"
 
 // Composition of every service. Members are declared in layers: each one
 // depends only on those declared before it.
@@ -103,6 +104,7 @@ public:
         // is up or was until moments ago; then the stream takes them over.
         bool slim = ota.slim();
         if (!slim) cfsetup.redeploy(now);   // after an update with another relay protocol
+        if (_otaDaily.due(iot.unixTime(), config.tz, config.ota_time, Daily::EVERY_DAY, now)) ota.dailyCheck(now, relay.up());
         if (ota.wantsNet(now)) net.want(NetArbiter::OTA);
         // With the relay up its Worker brings the public IP and the latest
         // release and sends the ntfy posts: no TLS session of their own, so
@@ -168,6 +170,8 @@ public:
     }
 
 private:
+    Daily _otaDaily;   // the update check, at the time set on the Update page
+
     // The heap a new session needs: GitHub's 16 KB buffer, or the others' 4 KB
     static NetArbiter::Need _need(NetArbiter::Who who) {
         if (who == NetArbiter::OTA) return {OTAService::GITHUB_HEAP, OTAService::GITHUB_BLOCK};
