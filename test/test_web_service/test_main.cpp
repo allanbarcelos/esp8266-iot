@@ -151,6 +151,21 @@ void test_escape() {
     TEST_ASSERT_FALSE(contains(f.srv.raw, "<a href"));
 }
 
+// The log page: the current file, then RAM; each line with its time, Unix
+// or "+" since boot, for i18n.js to write as a date in the zone of Settings
+void test_log_page() {
+    cfg.tz = -180;
+    Fixture f;
+    MockFS::put("/log.1", std::string("\x01\x00\x00\x00", 4) + "older file\n");
+    MockFS::put("/log.0", std::string("\x00\xd4\xcf\x6a", 4) + "from the file\n");
+    setMillis(7000);
+    logger.log("in RAM");
+    f.get("/log");
+    TEST_ASSERT_TRUE(contains(f.srv.raw, "<pre id='lg' data-tz='-180'>1792005120 from the file\n"));
+    TEST_ASSERT_TRUE(contains(f.srv.raw, "\n+7 in RAM\n</pre>"));
+    TEST_ASSERT_FALSE(contains(f.srv.raw, "older file"));
+}
+
 void test_mask_secret() {
     TEST_ASSERT_EQUAL_STRING("",         WebService::maskSecret("").c_str());
     TEST_ASSERT_EQUAL_STRING("****abc",  WebService::maskSecret("abc").c_str());
@@ -3729,6 +3744,7 @@ void test_unix_time() {
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_escape);
+    RUN_TEST(test_log_page);
     RUN_TEST(test_mask_secret);
     RUN_TEST(test_format_duration);
     RUN_TEST(test_format_bytes);

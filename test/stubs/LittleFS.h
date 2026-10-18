@@ -87,7 +87,7 @@ public:
             return File(MockFS::files[path], false, path);
         }
         if (MockFS::failWriteOpen) return File();
-        return File("", true, path);
+        return File(mode[0] == 'a' && exists(path) ? MockFS::files[path] : "", true, path);
     }
 
     bool rename(const char* from, const char* to) {

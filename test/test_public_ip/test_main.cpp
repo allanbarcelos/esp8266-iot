@@ -29,12 +29,7 @@ static const unsigned long T0 = 1000;
 static const unsigned long CHECK = PublicIPResolver::CHECK_INTERVAL;
 static const unsigned long RETRY = PublicIPResolver::RETRY_INTERVAL;
 
-static int logCount(const char* needle) {
-    int n = 0;
-    for (uint8_t i = 0; i < logger.count(); i++)
-        if (std::strstr(logger.entry(logger.startIndex() + i), needle)) n++;
-    return n;
-}
+static int logCount(const char* needle) { return logCount(logger, needle); }
 
 void test_first_service_ok() {
     Fix f;
@@ -74,12 +69,12 @@ void test_checks_every_5_min_and_logs_only_changes() {
     TEST_ASSERT_EQUAL(1, (int)MockHTTP::calledURLs.size());
 
     // Same IP: nothing in the log, only the check time
-    uint8_t lines = logger.count();
+    int lines = logCount(logger);
     MockHTTP::push(200, "1.2.3.4");
     TEST_ASSERT_TRUE(f.resolver.due(T0 + CHECK));
     f.resolver.tick(T0 + CHECK);
     TEST_ASSERT_EQUAL(2, (int)MockHTTP::calledURLs.size());
-    TEST_ASSERT_EQUAL(lines, logger.count());
+    TEST_ASSERT_EQUAL(lines, logCount(logger));
     TEST_ASSERT_EQUAL(T0, cfg.ipChanged);
     TEST_ASSERT_EQUAL(T0 + CHECK, cfg.ipChecked);
 
@@ -104,7 +99,7 @@ void test_without_wifi_or_clock_does_not_check() {
     TEST_ASSERT_FALSE(f.resolver.due(T0));
     f.resolver.tick(T0);
     TEST_ASSERT_EQUAL(0, (int)MockHTTP::calledURLs.size());
-    TEST_ASSERT_EQUAL(0, logger.count());
+    TEST_ASSERT_EQUAL(0, logCount(logger));
 }
 
 // A failure is logged only the first time; retries every minute

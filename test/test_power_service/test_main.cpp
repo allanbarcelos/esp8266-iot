@@ -36,7 +36,7 @@ void test_without_gauge_is_on_supply() {
     p.tick(0);
     TEST_ASSERT_FALSE(p.configured());
     TEST_ASSERT_EQUAL(PowerService::MAINS, p.source());
-    TEST_ASSERT_EQUAL(0, logger.count());
+    TEST_ASSERT_EQUAL(0, logCount(logger));
 }
 
 void test_gauge_not_answering() {
@@ -82,10 +82,10 @@ void test_battery_charging_and_supply() {
     TEST_ASSERT_EQUAL(100, p.percent());
     TEST_ASSERT_TRUE(logHas(logger, "Power: on supply"));
 
-    int lines = logger.count();
+    int lines = logCount(logger);
     g.soc = 0x6400;
     p.tick(3 * PowerService::READ_MS);                    // same state: no log
-    TEST_ASSERT_EQUAL(lines, logger.count());
+    TEST_ASSERT_EQUAL(lines, logCount(logger));
 
     g.soc = 0x3200;                                       // idle, but far from full
     p.tick(4 * PowerService::READ_MS);

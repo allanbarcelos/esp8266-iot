@@ -740,12 +740,12 @@ void test_dht22_rule_with_margin() {
     TEST_ASSERT_TRUE(iot.actuatorOn());
     TEST_ASSERT_EQUAL_STRING("[sensor] 26.5 C, 48.7% | on", iot.message());
     TEST_ASSERT_TRUE(contains(stateOf(iot), "\"temperature\":26.5,\"humidity\":48.7"));
-    uint8_t logged = logger.count();
+    int logged = logCount(logger);
 
     iot.tick(IoTService::READ_GAP_MS - 1);             // still within the interval
     feedDht(2, d);
     dhtRead(iot, IoTService::READ_GAP_MS);              // the same: not logged
-    TEST_ASSERT_EQUAL(logged, logger.count());
+    TEST_ASSERT_EQUAL(logged, logCount(logger));
 
     frame(0x01, 0x81, 0x01, 0x09, d);                  // 38.5%: inside the margin
     feedDht(2, d);
@@ -772,13 +772,13 @@ void test_dht_failures_negative_temperature_and_dht11() {
     TEST_ASSERT_EQUAL_STRING("error", iot.sensorText());
     TEST_ASSERT_TRUE(logHas(logger, "IoT: reading failed"));
     TEST_ASSERT_TRUE(contains(stateOf(iot), "\"status\":\"error\",\"text\":\"error\"}"));
-    uint8_t logged = logger.count();
+    int logged = logCount(logger);
 
     mock::busSegs.clear();
     mock::busAt = 0;
     seg(LOW, 5000);
     dhtRead(iot, IoTService::READ_GAP_MS);
-    TEST_ASSERT_EQUAL(logged, logger.count());
+    TEST_ASSERT_EQUAL(logged, logCount(logger));
 
     mock::busSegs.clear();
     mock::busAt = 0;
@@ -896,10 +896,10 @@ void test_ds18b20_conversion_and_errors() {
     feedDs(2, false, true, ok, 9);
     ausente.tick(0);
     TEST_ASSERT_EQUAL_STRING("error", ausente.sensorText());
-    uint8_t logged = logger.count();
+    int logged = logCount(logger);
     ausente.tick(100);
     ausente.tick(IoTService::READ_GAP_MS);
-    TEST_ASSERT_EQUAL(logged, logger.count());
+    TEST_ASSERT_EQUAL(logged, logCount(logger));
 
     IoTService reading{cfg, logger};
     reading.begin();

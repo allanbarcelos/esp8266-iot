@@ -44,13 +44,17 @@ inline void resetMocks() {
     mock::resetBus();
 }
 
-// true if any line of the ring buffer contains the text
-inline bool logHas(const Logger& log, const char* needle) {
-    for (uint8_t i = 0; i < log.count(); i++) {
-        if (std::strstr(log.entry(log.startIndex() + i), needle)) return true;
-    }
-    return false;
+// How many lines of the log (its files and RAM) contain the text ("": all)
+inline int logCount(const Logger& log, const char* needle = "") {
+    struct Find { const char* needle; int n; } f{needle, 0};
+    log.each([](void* ctx, uint32_t, const char* text) {
+        Find& f = *static_cast<Find*>(ctx);
+        f.n += std::strstr(text, f.needle) != nullptr;
+    }, &f);
+    return f.n;
 }
+
+inline bool logHas(const Logger& log, const char* needle) { return logCount(log, needle) > 0; }
 
 inline bool contains(const std::string& hay, const char* needle) {
     return hay.find(needle) != std::string::npos;

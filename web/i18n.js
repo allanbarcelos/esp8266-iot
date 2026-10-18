@@ -192,6 +192,13 @@ function QR(s) {
         ic('M9 20c-4 1-4-2-6-3m12 4v-4a3 3 0 0 0-1-3c3 0 6-1 6-6a5 5 0 0 0-1-3a5 5 0 0 0 0-3s-1 0-3 1a12 12 0 0 0-6 0C7 2 6 2 6 2a5 5 0 0 0 0 3a5 5 0 0 0-1 3c0 5 3 6 6 6a3 3 0 0 0-1 3v4') + '</a>');
     // Values in the rows (states and statuses from the device)
     document.querySelectorAll('.r b').forEach(function (b) { b.textContent = L(b.textContent); });
+    // The log: each line starts with its Unix time, written as a date in the
+    // time zone of Settings (data-tz, minutes); "+N", seconds since that boot
+    var lg = document.getElementById('lg');
+    if (lg) lg.textContent = lg.textContent.replace(new RegExp('^(\\+?)(\\d+) ', 'gm'), function (m, b, t) {
+        var d = new Date((+t + lg.dataset.tz * 60) * 1000).toISOString();
+        return b ? 'boot+' + t + 's ' : d.slice(0, 10) + ' ' + d.slice(11, 19) + ' ';
+    });
     document.documentElement.lang = IG[IL];
     de.classList.add('i');
 })();

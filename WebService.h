@@ -1260,13 +1260,20 @@ private:
         if (!_guard()) return;
         _pageBegin();
         _title(H(L_SYSTEM_LOG));
-        _p(H("<pre>"));
-        uint8_t cnt   = _log.count();
-        uint8_t start = _log.startIndex();
-        for (uint8_t i = 0; i < cnt; i++) {
-            _e(_log.entry(start + i));
-            _p(H("\n"));
-        }
+        // The current file and RAM. Each line starts with its time, Unix or
+        // "+" seconds since boot (the clock was not set): i18n.js writes the
+        // date, in the time zone of Settings (data-tz)
+        _p(H("<pre id='lg' data-tz='"));
+        _s(String(_cfg.tz));
+        _p(S_TAG_END);
+        _log.each([](void* ctx, uint32_t t, const char* text) {
+            WebService& w = *static_cast<WebService*>(ctx);
+            char b[16];
+            snprintf_P(b, sizeof(b), t < Clock::MIN_VALID_EPOCH ? PSTR("+%lu ") : PSTR("%lu "), (unsigned long)t);
+            w._s(b);
+            w._e(text);
+            w._p(H("\n"));
+        }, this, 2);
         _p(H("</pre>"));
         _pageEnd();
     }

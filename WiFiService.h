@@ -89,6 +89,7 @@ public:
         }
 
         if (_restartPending && (long)(now - _restartAt) >= 0) {
+            _log.flush();   // the lines waiting in RAM
             ESP.restart();
         }
     }

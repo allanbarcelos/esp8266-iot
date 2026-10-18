@@ -25,7 +25,8 @@ Each service is a header with dependencies injected by reference, composed in la
 | `ConfigStore.h`      | `/config.json` (LittleFS) with **atomic writes**, a version number and migrations |
 | `Json.h`             | Small JSON reader and writer (config, state, ntfy answers)                       |
 | `Password.h`         | Panel password as PBKDF2-HMAC-SHA1 with a random salt                            |
-| `Logger.h`           | Ring buffer of log lines (Serial + panel)                                        |
+| `Logger.h`           | Log: Serial at once, LittleFS in batches (3 rotating files of a block, lines packed) |
+| `LogPairs.h`         | The byte pairs of the log lines; frozen, so old files still read (`tools/log_pairs.py`) |
 | `Clock.h`            | SNTP wall clock (required to validate TLS certificates)                          |
 | `Schedule.h`         | Once a day at a local time, on chosen days of the week (update check, restart)   |
 | `Totp.h`             | Authenticator codes (RFC 6238): HMAC-SHA1 from BearSSL, 30 s, 6 digits           |
@@ -406,9 +407,13 @@ The pipeline runs `plan → check → build → test → release → pages`; if 
 
 ---
 
-## 📋 Remote log (future work)
+## 📋 Log
 
-Not in the firmware yet. The local ring (`Logger.h`, 10 lines of 128 characters, Serial and the panel) stays the RAM limit. The copy would go through ntfy on the data topic, prefixed `[log]`, several lines per POST every 60 s.
+Each line goes to Serial at once and waits in RAM (512 bytes); the device writes the waiting lines to LittleFS in one go every 10 minutes, when half the RAM is taken, and before a restart, so the flash is written a few times an hour at most. A line is never written from the Wi-Fi events. A line is stored as its time (4 bytes: Unix time once the clock is set, before that the seconds since boot, turned into Unix time on the way to the file when the clock arrives) and its text packed with a frozen table of 128 byte pairs (`LogPairs.h`, about half the size; a name in UTF-8 is kept as `?`). The current file, `/log.0`, takes about one LittleFS block (4 KB); full, it becomes `/log.1` and that one `/log.2`, whose lines go: the log never takes more than 3 blocks of the 64 KB, and survives restarts and updates. Lines that wait in RAM are lost when the device crashes.
+
+**Log** on the panel shows the current file and the lines in RAM, each with its date and time in the time zone of **Settings** (written by the browser; `boot+N s` for lines from before the clock was set).
+
+A copy through ntfy (the data topic, prefixed `[log]`) is future work.
 
 ---
 

@@ -54,6 +54,7 @@ public:
     RelayService relay{config, logger, clock, web.server(), &iot, &ntfy};
 
     void begin() {
+        logger.setClock(&clock);
         Serial.begin(115200);
         Serial.printf("\n=== ESP8266 DNS Updater %s ===\n", firmware_version);
 
@@ -98,6 +99,7 @@ public:
         if (_restartDaily.due(iot.unixTime(), config.tz, config.rst_time, config.rst_days, now)) wifi.dailyRestart();
         wifi.tickRestart(now);
         clock.tick(now);
+        logger.tick(now);
 
         // One TLS session fits: whoever needs the network says so, the
         // arbiter gives the turn by priority, and everyone else closes theirs
