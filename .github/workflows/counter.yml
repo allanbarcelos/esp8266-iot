@@ -7,10 +7,10 @@ name: Install counter
 # its tests, then the Worker and its KV namespace through the Cloudflare
 # API (curl and jq, nothing to install).
 #
-# Secrets: CLOUDFLARE_API_TOKEN (Account → Workers Scripts → Edit and
-# Account → Workers KV Storage → Edit) and CLOUDFLARE_ACCOUNT_ID. The
-# account needs a workers.dev subdomain. The first deploy creates the KV
-# namespace; a deploy never touches the count.
+# Secrets: CLOUDFLARE_API_TOKEN (an API token, not the Global API Key, with
+# Account → Workers Scripts → Edit and Account → Workers KV Storage → Edit)
+# and CLOUDFLARE_ACCOUNT_ID. The account needs a workers.dev subdomain. The
+# first deploy creates the KV namespace; a deploy never touches the count.
 
 on:
   push:
@@ -59,14 +59,31 @@ jobs:
             echo "::error::Set the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets"
             exit 1
           fi
-          API="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT"
-          cf() { curl -sS --fail-with-body -H "Authorization: Bearer $CF_TOKEN" "$@"; }
+          ROOT="https://api.cloudflare.com/client/v4"
+          API="$ROOT/accounts/$CF_ACCOUNT"
+          OUT="$RUNNER_TEMP/cf.json"
+          # One API call; the answer in $OUT. A failure stops here with
+          # Cloudflare's own message.
+          cf() {
+            if ! curl -sS --fail-with-body -o "$OUT" -H "Authorization: Bearer $CF_TOKEN" "$@"; then
+              echo "::error::Cloudflare: $(jq -r '[.errors[]? | "\(.code) \(.message)"] | join("; ")' "$OUT" 2>/dev/null)"
+              exit 1
+            fi
+          }
+
+          # The token first: a user token or an account token
+          if ! curl -sS -f -o "$OUT" -H "Authorization: Bearer $CF_TOKEN" "$ROOT/user/tokens/verify" \
+             && ! curl -sS -f -o "$OUT" -H "Authorization: Bearer $CF_TOKEN" "$API/tokens/verify"; then
+            echo "::error::CLOUDFLARE_API_TOKEN is not a valid API token (not the Global API Key; no spaces or line breaks around it)"
+            exit 1
+          fi
 
           # The KV namespace, made on the first deploy
-          ns=$(cf "$API/storage/kv/namespaces?per_page=100" | jq -r --arg t "$NAME" '.result[] | select(.title == $t) | .id')
+          cf "$API/storage/kv/namespaces?per_page=100"
+          ns=$(jq -r --arg t "$NAME" '.result[] | select(.title == $t) | .id' "$OUT")
           if [ -z "$ns" ]; then
-            ns=$(cf -X POST -H 'Content-Type: application/json' -d "{\"title\":\"$NAME\"}" \
-                 "$API/storage/kv/namespaces" | jq -r .result.id)
+            cf -X POST -H 'Content-Type: application/json' -d "{\"title\":\"$NAME\"}" "$API/storage/kv/namespaces"
+            ns=$(jq -r .result.id "$OUT")
           fi
 
           # The script, an ES module with its KV binding, on workers.dev
@@ -74,12 +91,11 @@ jobs:
               bindings: [{type: "kv_namespace", name: "COUNT", namespace_id: $ns}]}' > "$RUNNER_TEMP/metadata.json"
           cf -X PUT -F "metadata=@$RUNNER_TEMP/metadata.json;type=application/json" \
              -F "worker.mjs=@counter/worker.mjs;type=application/javascript+module" \
-             "$API/workers/scripts/$NAME" > /dev/null
-          cf -X POST -H 'Content-Type: application/json' -d '{"enabled": true}' \
-             "$API/workers/scripts/$NAME/subdomain" > /dev/null
+             "$API/workers/scripts/$NAME"
+          cf -X POST -H 'Content-Type: application/json' -d '{"enabled": true}' "$API/workers/scripts/$NAME/subdomain"
 
-          sub=$(cf "$API/workers/subdomain" | jq -r .result.subdomain)
-          url="https://$NAME.$sub.workers.dev"
+          cf "$API/workers/subdomain"
+          url="https://$NAME.$(jq -r .result.subdomain "$OUT").workers.dev"
           echo "Counter: $url" >> "$GITHUB_STEP_SUMMARY"
 
           # The installer posts to it and the README's badge reads it

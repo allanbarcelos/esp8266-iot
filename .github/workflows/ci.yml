@@ -22,8 +22,9 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  # Pipeline: plan → check → build → test → release → pages. Each job does one
-  # thing; without new firmware, build, test and release are skipped.
+  # Pipeline: plan → check → build → test → release. Each job does one
+  # thing; without new firmware, build, test and release are skipped. The
+  # web installer has its own workflow (pages.yml).
 
   # ── Decide: is there new firmware? which version? publish? ───────────────
   plan:
@@ -35,8 +36,6 @@ jobs:
       tests: ${{ steps.plan.outputs.tests }}
       release: ${{ steps.plan.outputs.release }}
       version: ${{ steps.plan.outputs.version }}
-      pages: ${{ steps.plan.outputs.pages }}
-      site_version: ${{ steps.plan.outputs.site_version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -47,15 +46,12 @@ jobs:
           EVENT: ${{ github.event_name }}
           REF: ${{ github.ref }}
           FORCE: ${{ inputs.release }}
-          BEFORE: ${{ github.event.before }}
           # Everything that changes the binary or the published package: sketch,
           # panel CSS/JS, key, linker, core/library versions, compile options
           # and OTA packaging
           FIRMWARE_PATHS: '^([^/]+\.(ino|h)|web/|relay/worker\.mjs|public\.key|ld/|tools/(ota_flash_ld|embed_web|embed_relay|i18n_cm|html_pairs)\.py|\.github/(actions/(setup-arduino|compile)/|scripts/package_ota\.py))'
           # Tests only: runs test, without build or release
           TEST_PATHS: '^(test/|platformio\.ini|requirements\.txt)'
-          # Web installer: the page and the site generator
-          PAGES_PATHS: '^(install/|tools/web_installer\.py)'
         run: |
           # Highest existing vN tag (numeric sort, no pagination limit)
           last=$(git tag -l 'v*' | sed -n 's/^v\([0-9][0-9]*\)$/\1/p' | sort -n | tail -1)
@@ -91,44 +87,13 @@ jobs:
             version="ci-${GITHUB_SHA::7}"
           fi
 
-          # Web installer on main: only when the page or its generator changes
-          # (diff against the previous push; without a known base, against the
-          # last tag) or on Run workflow. A new release alone does not
-          # redeploy it: the installer is for the first flash, and the device
-          # then updates itself to the latest release over OTA on its first
-          # check. It always flashes a published version: the new one when
-          # this push also releases, otherwise the last tag.
-          pages=false
-          if [ "$REF" = "refs/heads/main" ] && [ "$EVENT" != "pull_request" ]; then
-            if [ "$EVENT" = "workflow_dispatch" ]; then
-              pages=true
-            elif [ "$EVENT" = "push" ]; then
-              base="$BEFORE"
-              if ! git rev-parse -q --verify "$base^{commit}" >/dev/null; then
-                base="$last_tag"   # push without a known base (new branch, force push)
-              fi
-              if ! git rev-parse -q --verify "$base^{commit}" >/dev/null \
-                 || git diff --name-only "$base" "$GITHUB_SHA" | grep -qE "$PAGES_PATHS"; then
-                pages=true
-              fi
-            fi
-          fi
-          if [ "$release" = "true" ]; then
-            site_version="$version"
-          else
-            site_version="$last_tag"
-            if [ -z "$last" ]; then pages=false; fi   # nothing published yet
-          fi
-
           {
             echo "firmware=$firmware"
             echo "tests=$tests"
             echo "release=$release"
             echo "version=$version"
-            echo "pages=$pages"
-            echo "site_version=$site_version"
           } >> "$GITHUB_OUTPUT"
-          echo "New firmware: $firmware, tests: $tests, release: $release, version: $version (last tag: $last_tag), web installer: $pages ($site_version)" \
+          echo "New firmware: $firmware, tests: $tests, release: $release, version: $version (last tag: $last_tag)" \
             | tee -a "$GITHUB_STEP_SUMMARY"
 
   # ── Repository rules (seconds, always) ────────────────────────────────────
@@ -248,7 +213,7 @@ jobs:
             --key "$RUNNER_TEMP/test.key" --pubkey "$RUNNER_TEMP/test.pub" \
             --tag "${{ needs.plan.outputs.version }}"
 
-      # The same generator as the pages job: ESP8266 image, within the
+      # The same generator as the web installer workflow (pages.yml): ESP8266 image, within the
       # maximum sketch and with the version the manifest announces
       - name: Build the web installer (check)
         run: |
@@ -348,40 +313,3 @@ jobs:
             dist/firmware.signed.bin
             dist/firmware.tagged.bin
           fail_on_unmatched_files: true
-
-  # ── Web installer (ESP Web Tools) on GitHub Pages ────────────────────────
-  # Only when the page changes (plan). The firmware comes from the release's
-  # firmware.bin (gzip of the raw .bin): the page only flashes published
-  # versions. Needs Settings → Pages → Source: GitHub Actions.
-  pages:
-    needs: [plan, release]
-    if: >-
-      !failure() && !cancelled() && needs.plan.outputs.pages == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-
-      - name: Download the release firmware
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.plan.outputs.site_version }}
-        run: gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern firmware.bin --dir build
-
-      - name: Build the site
-        env:
-          TAG: ${{ needs.plan.outputs.site_version }}
-        run: python3 tools/web_installer.py build/firmware.bin "$TAG" site
-
-      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
-        with:
-          path: site
-
-      - id: deploy
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1
