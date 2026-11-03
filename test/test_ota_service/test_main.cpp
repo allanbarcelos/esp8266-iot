@@ -474,6 +474,24 @@ void test_stalled_stream_aborts_on_timeout() {
     TEST_ASSERT_TRUE(logHas(logger, "OTA without data"));
 }
 
+// Data that trickles in, a chunk just before each STALL_TIMEOUT, still
+// ends at DOWNLOAD_MS: the IoT loop pauses while the flash is written
+void test_trickling_download_hits_the_deadline() {
+    Fixture f;
+    queueUpdate(std::string(512 * 40, 'X'), 100000);
+    f.ota.dailyCheck(T);
+    f.ota.tick(T);
+    unsigned long t = T;
+    while (f.ota.inProgress() && t < T + 2 * OTAService::DOWNLOAD_MS) {
+        t += OTAService::STALL_TIMEOUT - 1000;
+        f.ota.tick(t);
+    }
+    TEST_ASSERT_FALSE(f.ota.inProgress());
+    TEST_ASSERT_TRUE(t > T + OTAService::DOWNLOAD_MS);
+    TEST_ASSERT_TRUE(t < T + OTAService::DOWNLOAD_MS + OTAService::STALL_TIMEOUT);
+    TEST_ASSERT_EQUAL(1, Update._aborts);
+}
+
 void test_automatic_off_does_not_check() {
     Fixture f;
     f.ota.setAutomatic(false);
@@ -683,6 +701,17 @@ void test_check_tls_unavailable() {
     TEST_ASSERT_EQUAL(0, (int)MockHTTP::calledURLs.size());
     TEST_ASSERT_EQUAL_STRING("Retrying in 10 s", f.ota.detail());
     TEST_ASSERT_TRUE(logHas(logger, "OTA: TLS unavailable"));
+    // While it waits the network turn goes to the others; then it asks again,
+    // also with millis() wrapping in between
+    TEST_ASSERT_TRUE(f.ota.busy());
+    TEST_ASSERT_FALSE(f.ota.wantsNet(T + 9999));
+    TEST_ASSERT_TRUE(f.ota.wantsNet(T + 10000));
+    Fixture g;
+    unsigned long late = 0xFFFFFFFFUL - 5000;
+    g.ota.dailyCheck(late);
+    g.ota.tick(late);
+    TEST_ASSERT_FALSE(g.ota.wantsNet(late + 9999));      // past 0, not 49 days
+    TEST_ASSERT_TRUE(g.ota.wantsNet(late + 10000));
 }
 
 void test_download_not_enough_memory() {
@@ -1594,6 +1623,7 @@ int main() {
     RUN_TEST(test_write_error_aborts);
     RUN_TEST(test_wifi_drops_during_ota);
     RUN_TEST(test_stalled_stream_aborts_on_timeout);
+    RUN_TEST(test_trickling_download_hits_the_deadline);
     RUN_TEST(test_no_new_check_during_ota);
     RUN_TEST(test_automatic_off_does_not_check);
     RUN_TEST(test_manual_check_does_not_install);

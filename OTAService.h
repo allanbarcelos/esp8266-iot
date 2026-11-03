@@ -103,14 +103,15 @@ public:
     bool slim()      const { return _slim; }
     bool online()    const { return _active(); }   // a check or download on the network
     bool busy()      const {
-        // _nextRetry is only != 0 together with _wantCheck/_wantInstall
+        // _retrying is only set together with _wantCheck/_wantInstall
         return _active() || _wantCheck || _wantInstall;
     }
 
     // Check or download now or on the next tick (ntfy releases TLS). Not
     // while the relay is asked: the turn would close it.
+    // Nor while it only waits to try again: the others keep the network.
     bool wantsNet(unsigned long now) const {
-        if (_waitingRelay(now)) return false;
+        if (_waitingRelay(now) || _waitingRetry(now)) return false;
         return busy();
     }
 
@@ -152,7 +153,7 @@ public:
     void requestCheck(bool viaRelay = false, unsigned long now = millis()) {
         if (_active() || _wantCheck) return;
         _wantInstall = false;
-        _nextRetry = 0;
+        _retrying = false;
         _wantCheck = true;
         _auto = false;
         _askRelay = viaRelay;
@@ -170,7 +171,7 @@ public:
     void requestInstall() {
         if (_active() || _available[0] == '\0') return;
         _wantCheck = false;
-        _nextRetry = 0;
+        _retrying = false;
         _wantInstall = true;
         _note(Report::Available, PSTR("Downloading %s..."), _available);
     }
@@ -194,11 +195,11 @@ public:
         if (_wifi.restartPending()) return;
         if (!_wifi.isConnected()) return;
 
-        if (_nextRetry != 0 && now < _nextRetry) return;
+        if (_waitingRetry(now)) return;
 
         if (_wantInstall) {
             _wantInstall = false;
-            _nextRetry = 0;
+            _retrying = false;
             _download(_available, now);
             return;
         }
@@ -209,7 +210,7 @@ public:
         }
         if (_wantCheck) {
             _wantCheck = false;
-            _nextRetry = 0;
+            _retrying = false;
             // Recovery: the check exists to finish the OTA, with no panel.
             _checkNow(now, _slim || _auto);
         }
@@ -269,6 +270,10 @@ public:
     static constexpr char T_SIZE[] PROGMEM = "Invalid firmware size";
     static constexpr char T_RECOVERED[] PROGMEM = "OTA: recovery done, restoring the panel";
     static constexpr unsigned long STALL_TIMEOUT  = 60000UL;    // no data for 60 s
+    // The whole download (~370 KB; a minute at home): a byte trickling in
+    // every 59 s from someone on the path must not keep the IoT loop, which
+    // pauses while the flash is written, stopped for days
+    static constexpr unsigned long DOWNLOAD_MS    = 600000UL;   // 10 min
     static constexpr unsigned long READ_TIMEOUT   = 15000UL;    // HTTP response stalled
     static constexpr unsigned long RETRY_MS       = 10000UL;
     static constexpr unsigned long RETRY_MAX_MS   = 20000UL;
@@ -315,7 +320,9 @@ private:
     int              _contentLength = 0;
     size_t           _written       = 0;
     unsigned long    _lastProgress  = 0;
-    unsigned long    _nextRetry     = 0;
+    unsigned long    _retryFrom     = 0;   // the failure; the wait is _retryDelay
+    bool             _retrying      = false;
+    unsigned long    _dlFrom        = 0;   // the download started
     unsigned long    _retryDelay    = 0;
     int              _lastPct       = 0;
     uint8_t          _tries         = 0;
@@ -332,6 +339,9 @@ private:
     bool _waitingRelay(unsigned long now) const {
         return _wantCheck && _askRelay && now - _askedAt < RELAY_WAIT;
     }
+
+    // A start and a length, not an end compared with '<': millis() wraps
+    bool _waitingRetry(unsigned long now) const { return _retrying && now - _retryFrom < _retryDelay; }
 
     // Short of heap, it restarts (_recoverHeap): the panel says so, with the numbers
     bool _tlsReady() {
@@ -825,6 +835,7 @@ private:
         _written      = 0;
         _lastPct      = 0;
         _lastProgress = now;
+        _dlFrom       = now;
         _inProgress   = true;
         _wifi.setOTAInProgress(true);
         if (_unknownLen) _log.log(LOGP("OTA started: unknown size"));
@@ -836,7 +847,7 @@ private:
             _abort("Wi-Fi dropped during OTA", now);
             return;
         }
-        if (now - _lastProgress > STALL_TIMEOUT) {
+        if (now - _lastProgress > STALL_TIMEOUT || now - _dlFrom > DOWNLOAD_MS) {
             _abort("OTA without data, aborting", now);
             return;
         }
@@ -916,7 +927,7 @@ private:
         if (_tries >= MAX_TRIES) {
             _tries = 0;
             _retryDelay = 0;
-            _nextRetry = 0;
+            _retrying = false;
             if (install) { // an install is only requested with _available set
                 _persistAndReboot();
                 return;
@@ -928,7 +939,8 @@ private:
         unsigned long delayMs = _retryDelay == 0 ? RETRY_MS : _retryDelay * 2;
         if (delayMs > RETRY_MAX_MS) delayMs = RETRY_MAX_MS;
         _retryDelay = delayMs;
-        _nextRetry = now + delayMs;
+        _retryFrom = now;
+        _retrying = true;
         if (install) _wantInstall = true;
         else _wantCheck = true;
         _note(Report::Failed, PSTR("Retrying in %u s"), (unsigned)(delayMs / 1000));

@@ -145,7 +145,7 @@ public:
         bool go = who != NetArbiter::NONE && net.ready(now, _need(who), _running(who));
         // MQTT is plain TCP, but its buffers are heap the GitHub session, or a
         // turn waiting for memory, needs
-        mqtt.hold(slim || ota.busy() || net.starved());
+        mqtt.hold(slim || ota.wantsNet(now) || net.starved());
 
         net.at(who);
         if (go) {
