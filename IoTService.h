@@ -41,6 +41,9 @@ public:
     static constexpr unsigned long DHT22_WAKE_MS    = 2;
     static constexpr unsigned long DHT22_WAKE_MAX   = 20;
     static constexpr unsigned long PULSE_WINDOW_MS  = 10000;
+    // Failed readings in a row before automatic mode stops trusting the last
+    // one and turns the actuator off: a loose cable must not leave a heater on
+    static constexpr uint8_t       FAILS_TO_SAFE    = 3;
     static constexpr size_t        MSG_LEN          = 80;
     static constexpr uint8_t       MAX_LEDS         = 60;  // 1.8 ms with interrupts off
     static constexpr char          ACTUATOR_MSG[] PROGMEM = "[actuator] %s";
@@ -350,6 +353,7 @@ private:
     bool    _seen;
     bool    _haveLevel;
     bool    _failing;
+    uint8_t _fails;         // failed readings in a row
     bool    _haveRead;
     bool    _windowOpen;
     bool    _active;        // digital: active state
@@ -402,6 +406,7 @@ private:
         _seen = false;
         _haveLevel = false;
         _failing = false;
+        _fails = 0;
         _haveRead = false;
         _windowOpen = false;
         _active = false;
@@ -659,6 +664,12 @@ private:
     }
 
     void _fail() {
+        if (_fails < FAILS_TO_SAFE && ++_fails == FAILS_TO_SAFE && hasRule()) {
+            _ruleOn = false;
+            _ruleLevel = _r.dutyOff;
+            _haveRule = true;
+            if (!_manual && _takeRule()) _changed(PSTR("[actuator] %s (sensor failed)"));
+        }
         if (_failing) return;
         _failing = true;
         _log.log(LOGP("IoT: reading failed"));
@@ -725,6 +736,7 @@ private:
     // New numeric reading: text, rule and notice
     void _accept(int value, bool tenths) {
         _failing = false;
+        _fails = 0;
         uint8_t kind = sensorKind();
         char a[12];
         int shown = _inUnit(value, tenths);

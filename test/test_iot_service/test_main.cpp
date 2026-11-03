@@ -940,6 +940,71 @@ void test_ds18b20_conversion_and_errors() {
     TEST_ASSERT_TRUE(logHas(logger, "IoT: -10.5 C | on"));
 }
 
+// A sensor that stops answering: one failed reading keeps the rule's last
+// decision; FAILS_TO_SAFE in a row turn automatic mode off, once, until a
+// reading comes back. A manual command and an actuator already off stay.
+static void dsFails(IoTService& iot, unsigned long t) {
+    const uint8_t ok[] = {0x90, 0x01, 0x4B, 0x46, 0x7F, 0xFF, 0x0C, 0x10, 0x33};
+    feedDs(2, false, true, ok, 9);
+    iot.tick(t);
+}
+
+static void dsReads(IoTService& iot, unsigned long t) {
+    const uint8_t ok[] = {0x90, 0x01, 0x4B, 0x46, 0x7F, 0xFF, 0x0C, 0x10, 0x33};   // 25.0 C
+    feedDs(2, true, true, ok, 9);
+    iot.tick(t);
+    iot.tick(t + IoTService::DS_CONVERT_MS);
+}
+
+void test_failed_sensor_turns_automatic_off() {
+    sensor("ds18b20", 2);
+    actuator("relay", 0);
+    cfg.iot.rule = true;
+    cfg.iot.above = true;
+    cfg.iot.threshold = 20;
+    IoTService iot{cfg, logger};
+    iot.begin();
+    dsReads(iot, 0);
+    TEST_ASSERT_TRUE(iot.actuatorOn());
+
+    unsigned long t = IoTService::READ_GAP_MS * 2;
+    for (uint8_t i = 1; i < IoTService::FAILS_TO_SAFE; i++, t += IoTService::READ_GAP_MS) {
+        dsFails(iot, t);
+        TEST_ASSERT_TRUE(iot.actuatorOn());               // one bad reading is not enough
+    }
+    dsFails(iot, t);
+    TEST_ASSERT_FALSE(iot.actuatorOn());
+    TEST_ASSERT_FALSE(iot.manual());                      // still automatic
+    TEST_ASSERT_TRUE(logHas(logger, "IoT: [actuator] off (sensor failed)"));
+    int logged = logCount(logger);
+    dsFails(iot, t += IoTService::READ_GAP_MS);           // more failures: nothing new
+    TEST_ASSERT_EQUAL(logged, logCount(logger));
+
+    dsReads(iot, t += IoTService::READ_GAP_MS);           // back: the rule decides again
+    TEST_ASSERT_TRUE(iot.actuatorOn());
+    TEST_ASSERT_EQUAL_STRING("25.0 C", iot.sensorText());
+
+    TEST_ASSERT_EQUAL(IoTService::OK, iot.command("on", t));   // manual wins
+    for (uint8_t i = 0; i < IoTService::FAILS_TO_SAFE; i++) dsFails(iot, t += IoTService::READ_GAP_MS);
+    TEST_ASSERT_TRUE(iot.actuatorOn());
+
+    cfg.iot.threshold = 30;                               // the rule keeps it off already
+    IoTService cold{cfg, logger};
+    cold.begin();
+    dsReads(cold, 0);
+    TEST_ASSERT_FALSE(cold.actuatorOn());
+    logged = logCount(logger);
+    for (uint8_t i = 0; i < IoTService::FAILS_TO_SAFE; i++) dsFails(cold, (i + 2) * IoTService::READ_GAP_MS);
+    TEST_ASSERT_FALSE(cold.actuatorOn());
+    TEST_ASSERT_EQUAL(logged + 1, logCount(logger));      // only "reading failed"
+
+    actuator("", -1);                                     // sensor only: no rule to stop
+    IoTService alone{cfg, logger};
+    alone.begin();
+    for (uint8_t i = 0; i < IoTService::FAILS_TO_SAFE; i++) dsFails(alone, i * IoTService::READ_GAP_MS);
+    TEST_ASSERT_EQUAL_STRING("error", alone.sensorText());
+}
+
 void test_pulses_in_window_with_hysteresis() {
     sensor("pulses", 2);
     actuator("relay", 0);
@@ -1843,6 +1908,7 @@ int main() {
     RUN_TEST(test_dht_failures_negative_temperature_and_dht11);
     RUN_TEST(test_dht_start_pulse_without_delay);
     RUN_TEST(test_ds18b20_conversion_and_errors);
+    RUN_TEST(test_failed_sensor_turns_automatic_off);
     RUN_TEST(test_pulses_in_window_with_hysteresis);
     RUN_TEST(test_units_temperature_in_fahrenheit);
     RUN_TEST(test_units_tank_level_and_volume);
