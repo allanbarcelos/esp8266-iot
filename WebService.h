@@ -240,12 +240,13 @@ private:
             return fails == FREE_LOGIN_FAILS;
         }
     };
-    // Three counts, so a device on the network that keeps guessing cannot
-    // hold the owner out: the API token has its own, and so has the address
-    // of the last sign-in (in RAM; a table per address does not fit, and from
-    // outside the home the panel sits behind a tunnel with its own login,
-    // docs/REMOTE-ACCESS.md)
-    Throttle         _apiTries, _panelTries, _ownerTries;
+    // Four counts, so a device on the network that keeps guessing cannot
+    // hold the owner out: the panel and the API each keep one for the address
+    // that last got it right and one for everyone else (in RAM; a table per
+    // address does not fit, and from outside the home the panel sits behind
+    // a tunnel with its own login, docs/REMOTE-ACCESS.md)
+    Throttle         _apiTries, _panelTries, _ownerTries, _apiOwnTries;
+    uint32_t         _apiOwner = 0;   // the address of the last right token
     uint32_t         _owner = 0;
     uint8_t          _session = 0;   // 0 signed out, 1 authenticator setup, 2 signed in
     char             _sid[33] = {};
@@ -2579,15 +2580,18 @@ private:
             _jsonError(404, "no sensor or actuator configured");
             return false;
         }
+        uint32_t ip = _server.remoteIP();
+        Throttle& t = _apiOwner && ip == _apiOwner ? _apiOwnTries : _apiTries;
         // cppcheck-suppress knownConditionTrueFalse ; the counter changes between requests
-        if (_blocked(_apiTries)) return false;
+        if (_blocked(t)) return false;
         if (!_bearerOk()) {
-            if (_server.authorization().length()) _loginFailed(_apiTries);   // a probe without one is no guess
+            if (_server.authorization().length()) _loginFailed(t);   // a probe without one is no guess
             _server.sendHeader("WWW-Authenticate", "Bearer");
             _jsonError(401, "invalid token");
             return false;
         }
-        _apiTries.fails = 0;
+        t.fails = 0;
+        _apiOwner = ip;
         return true;
     }
 

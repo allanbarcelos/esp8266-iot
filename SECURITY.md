@@ -132,9 +132,9 @@ you own.
   framed by another site.
 - **Wrong passwords**: after 5 wrong panel passwords, authenticator codes or API tokens in a row,
   each new mistake doubles a wait (2 s up to 5 min) during which nothing is checked and the device
-  answers 429. A correct sign-in clears the count. There are three counts: the API token's, the
-  one for the address of the last sign-in, and the one for every other address. Someone guessing
-  elsewhere on the network waits alone; the owner and scripts using the API carry on.
+  answers 429. A correct sign-in clears the count. There are four counts: for the panel and for
+  the API token, one for the address that last got it right and one for every other address.
+  Someone guessing elsewhere on the network waits alone; the owner and scripts using the API carry on.
 - **Requests**: the panel answers only to its own names (an IP address, a name without a dot, its
   hostname in a home network's domain (`.local`, `.lan`, `.home`, `.home.arpa`, `.localdomain`), the DDNS record, the relay's address and the names listed under
   Settings, Other addresses), so a page on another site cannot reach it through DNS rebinding. A request must

@@ -3065,6 +3065,13 @@ void test_guessing_elsewhere_does_not_lock_the_owner_out() {
     }
     api(f, HTTP_GET, "/api/state", bearer.c_str());
     TEST_ASSERT_EQUAL(429, f.srv.code);
+    f.srv.ip = OTHER;                                 // the address of the last right token goes on
+    api(f, HTTP_GET, "/api/state", bearer.c_str());
+    TEST_ASSERT_EQUAL(200, f.srv.code);
+    for (int i = 0; i < WebService::FREE_LOGIN_FAILS; i++)
+        api(f, HTTP_GET, "/api/state", "Bearer ffffffffffffffffffffffffffffffff");
+    api(f, HTTP_GET, "/api/state", bearer.c_str());   // its own mistakes wait on its own count
+    TEST_ASSERT_EQUAL(429, f.srv.code);
     f.srv.ip = OWNER;
     f.get("/status");
     TEST_ASSERT_EQUAL(200, f.srv.code);
