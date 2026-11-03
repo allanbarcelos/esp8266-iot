@@ -241,7 +241,7 @@ The IoT page starts with a single choice:
 | **Sensor and actuator** | Both; with the **rule** on, the sensor drives the actuator in automatic mode. A manual command wins until `auto`. |
 | **Nothing** | IoT off; the pins are left alone. |
 
-The form is written by the browser (`web/iot.js`) from the saved setup the page carries; the device keeps every check on save. Each choice shows only the fields it needs. Every sensor and actuator type shows a one-line wiring hint (pull-up, supply, GPIO0/GPIO2 at boot).
+The form is written by the browser (`web/iot.js`) from the saved setup the page carries; the device keeps every check on save. Each choice shows only the fields it needs. Every sensor and actuator type shows a one-line wiring hint (pull-up, supply, GPIO0/GPIO2 at boot). With a sensor or an actuator on TX (GPIO1) the firmware leaves the serial port off, but the chip's boot ROM still sends its own message on TX for a fraction of a second at every power-up and restart: do not put an actuator that must never pulse (a gate, a lock) on TX.
 
 ### Sensors
 

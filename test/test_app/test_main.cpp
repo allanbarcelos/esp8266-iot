@@ -28,6 +28,24 @@ void test_begin_starts_services() {
     TEST_ASSERT_FALSE(logHas(app.logger, "Crashed in: "));
 }
 
+// A module on TX (GPIO1) keeps the serial port shut: each line would switch it
+void test_begin_leaves_tx_to_the_module() {
+    MockFS::put("/config.json", R"({"v":2,"ssid":"Home","pass":"12345678","webpss":"strong-pass",
+        "actuator":"relay","actuator_pin":1})");
+    {
+        App app;
+        app.begin();
+        TEST_ASSERT_EQUAL(0, Serial.baud);
+        TEST_ASSERT_TRUE(app.iot.hasActuator());
+    }
+    MockFS::put("/config.json", R"({"v":2,"ssid":"Home","pass":"12345678","webpss":"strong-pass",
+        "sensor":"pir","sensor_pin":1})");
+    App app;
+    app.begin();
+    TEST_ASSERT_EQUAL(0, Serial.baud);
+    TEST_ASSERT_TRUE(app.iot.hasSensor());
+}
+
 // The software watchdog fired during a tick: the next boot says where
 void test_begin_logs_where_the_last_boot_crashed() {
     MockFS::put("/config.json", R"({"ssid":"Home","pass":"12345678","webpss":"strong-pass"})");
@@ -474,6 +492,7 @@ void test_tick_open_stream_goes_on() {
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_begin_starts_services);
+    RUN_TEST(test_begin_leaves_tx_to_the_module);
     RUN_TEST(test_begin_logs_where_the_last_boot_crashed);
     RUN_TEST(test_tick_reads_battery_gauge);
     RUN_TEST(test_begin_turns_automatic_ota_off);

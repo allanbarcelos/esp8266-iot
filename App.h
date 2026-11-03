@@ -55,11 +55,12 @@ public:
 
     void begin() {
         logger.setClock(&clock);
-        Serial.begin(115200);
-        Serial.printf("\n=== ESP8266 IoT %s ===\n", firmware_version);
-
         configStore.begin();
         configStore.load();
+        // A sensor or an actuator on TX (GPIO1): the serial port would
+        // switch it at every line until iot.begin() takes the pin
+        if (config.iot.actuatorPin != 1 && config.iot.sensorPin != 1) Serial.begin(115200);
+        Serial.printf("\n=== ESP8266 IoT %s ===\n", firmware_version);
 
         wifi.registerEvents();
         wifi.begin();
