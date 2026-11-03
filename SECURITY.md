@@ -50,7 +50,8 @@ you own.
 - **Panel authentication**: reaching any page or action without the panel session (user, password
   and authenticator),
   cross-site request forgery, stored or reflected XSS (SSID, log lines, sensor names, any value
-  shown back), or reading a stored secret (Wi-Fi password, Cloudflare token, API token) from a page.
+  shown back), or reading a stored secret (Wi-Fi password, Cloudflare token, MQTT or ntfy
+  password) from a page without the panel session.
 - **Device control**: operating a sensor or actuator, or reading its state, without the panel
   login or the API token, or through a command that the configured module type should refuse.
 - **Remote access relay**: reaching the device through its relay Worker without the panel login
@@ -128,7 +129,8 @@ you own.
   setup, is drawn at each boot and rotated when the password changes). Signing out needs the
   session, so another device on the network cannot sign the owner out. Every value shown back is
   HTML-escaped, and stored secrets are never sent back to the browser (tokens are masked; the
-  authenticator secret is not shown again). Pages and API answers are never cached and cannot be
+  authenticator secret is not shown again). The one exception is the local API token, which the
+  IoT page shows whole, behind the session, for the examples to copy. Pages and API answers are never cached and cannot be
   framed by another site.
 - **Wrong passwords**: after 5 wrong panel passwords, authenticator codes or API tokens in a row,
   each new mistake doubles a wait (2 s up to 5 min) during which nothing is checked and the device

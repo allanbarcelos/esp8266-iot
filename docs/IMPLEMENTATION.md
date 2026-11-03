@@ -30,7 +30,7 @@ After the round and the adjustments at the end of this page (English, four langu
 | 10 | SHT30/SHT31 sensor over I2C (GPIO0 with GPIO2, or RX with TX) | +1.1 KB | Yes | `28e917f` |
 | 11 | MAX17048 battery gauge and, in the top-right corner of the panel: on supply, on battery (%) or charging from solar | +2.4 KB | Yes, the MAX17048 only; the INA219 was left out | `98588a9`, moved in `17b1e99` |
 | 12 | Backup second Wi-Fi | the form | No | — |
-| 13 | Field diagnostics: last crash and heap, RSSI and uptime over MQTT | ~1 day | No | — |
+| 13 | Field diagnostics: last crash and heap, RSSI and uptime over MQTT | ~1 day | Yes | `d8e20d9` |
 | 14 | Validate GitHub's certificate on OTA | ~1.5 KB | No | — |
 | 15 | MQTT with TLS to a cloud broker (one or the other with the ntfy commands) | ~1.5 KB, ~2 days | No | — |
 | 16 | Remote log through ntfy (`[log]` on the data topic) | small | No | — |
@@ -46,7 +46,7 @@ After the round and the adjustments at the end of this page (English, four langu
 - **7, lean server.** `HttpServer.h` serves one client at a time and closes the connection at the end of each response. The raw body is still in `plain`, so `curl -d on` works the same. The panel tests now speak real HTTP to the server, over a simulated socket.
 - **8, time window.** Outside the window, and with the clock still in 1970, automatic mode keeps the actuator off. A manual command still holds until `auto`. The API and MQTT carry `"hours"` on the actuator when the window is on.
 - **10, SHT3x.** The chosen pin is SDA; SCL is the pair's other pin. I2C is done in software (`I2cBus.h`), without the Wire library. The panel does not let the actuator sit on SCL.
-- **11, battery.** The state comes from the MAX17048 charge rate. Rising, the battery is charging. Falling, or below 98 % and not charging, the device is on battery. Full and idle, or with no gauge configured, it is on supply. From the rate alone, the gauge cannot tell the solar panel from a power supply: any charge shows as "Charging". The charge does not go to the API or MQTT yet.
+- **11, battery.** The state comes from the MAX17048 charge rate. Rising, the battery is charging. Falling, or below 98 % and not charging, the device is on battery. Full and idle, or with no gauge configured, it is on supply. From the rate alone, the gauge cannot tell the solar panel from a power supply: any charge shows as "Charging". The charge and the state go in the API and MQTT state since `6cd2714`.
 - **17, English.** Commands, sensor and actuator identifiers, panel, logs, ntfy prefixes (`[actuator]`, `[error]`), code, tests, tools, CI, the web installer and the docs are in English. The Portuguese commands (`ligar`, `pulso`…) are no longer accepted, and a configuration saved with the Portuguese identifiers (`rele`, `ventilador`, `contato`…) is not migrated: after the update that part stays off, with a warning on the IoT page, until the module is chosen again. The v1 migration (types by table position) still works.
 - **On the device:** items 7, 8, 10, 11 and 17 depend on real hardware, network and browser; like every release, they ran on a real ESP-01.
 

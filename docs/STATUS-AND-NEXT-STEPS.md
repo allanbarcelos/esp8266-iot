@@ -1,6 +1,6 @@
 # Firmware status and next steps
 
-Status on 2026-10-15, after the remote access round (`f9af9be` to `ca395c5`). What went in, and in which commit, is in [IMPLEMENTATION.md](IMPLEMENTATION.md).
+Status on 2026-11-03, after a review round (`6fa9516` onwards, below); before it, the remote access round (`f9af9be` to `ca395c5`). What went in, and in which commit, is in [IMPLEMENTATION.md](IMPLEMENTATION.md).
 
 ## Where we are
 
@@ -8,13 +8,28 @@ A 1 MB ESP-01 that keeps the Cloudflare DNS pointing at home, reads a sensor and
 
 | | |
 | --- | --- |
-| Firmware | 498,624 of 500,000 bytes (1,376 to spare) |
+| Firmware | 499,968 of 500,000 bytes (32 to spare; PlatformIO build) |
 | Signed OTA package | ~354 KB of 400 KB |
 | Static RAM | 39,784 bytes |
-| Native tests | 607, with 100 % of lines, functions and branches |
-| Panel IoT script tests | 24 on Node, 100 % of lines, functions and branches, on the source and minified |
-| Relay Worker tests | 28 on Node, 100 % of lines, functions and branches, on the source and on the embedded script |
+| Native tests | 647, with 100 % of lines, functions and branches |
+| Panel IoT script tests | 28 on Node, 100 % of lines, functions and branches, on the source and minified |
+| Relay Worker tests | 30 on Node, 100 % of lines, functions and branches, on the source and on the embedded script |
 | In CI | no compiler warnings, ASan and UBSan, cppcheck, fuzzing of 9 inputs |
+
+## Review round (2026-11-03)
+
+A review of the whole firmware, the relay Worker and CI, then one commit per fix, each with its tests (100 % coverage kept). Sizes are PlatformIO's build (`pio run -e esp8266`), which came out 112 bytes above the README's arduino-cli figure before the round.
+
+- **Actuator safety.** Three failed readings in a row turn automatic mode off (a loose sensor cable left a heater on). A DS18B20 with its line shorted read a valid 0.0 C, and one that lost power 85.0 C: both are failed readings now. A restart that is not a power cut (the 00:00 restart, a watchdog, an update) keeps the actuator as it was, from RTC memory, with the minutes counted for safety off. An actuator on TX was switched by the boot's log lines: the serial port stays off then. The AHT20's CRC is checked.
+- **Schedule.** Minutes missed while the loop was held (an update, a restart) run late, in order, up to 15; a clock moved back does not run a minute twice. Nothing after a NUL reaches `/schedule`.
+- **Flash and storage.** The log writes early at most once per 5 minutes after a burst, so a chattering sensor cannot wear the flash out. A config write cut short (file system full) no longer replaces the good one.
+- **Panel.** The Host check takes the hostname only in a home network's domain (`garage.evil.com` passed as `garage.local`). An answer has a deadline as the request did (a slow reader held the loop for minutes). Waits and sessions survive `millis()` wrapping. The API's attempt count is split like the panel's, so wrong tokens from elsewhere do not hold the owner's scripts out. A new authenticator's first code is not refused.
+- **Network.** The OTA download has a 10-minute deadline (a byte every 59 s from someone on the path held the IoT loop for good), and gives the network back between tries. DNS update failures back off up to 16 minutes instead of closing the relay every minute. MQTT pings every half keepalive, so a broker that only receives QoS 0 publishes is not dropped as stalled. The reverse DNS takes only the server's answer to a random id. A failed route after a relay upload keeps the Worker's new secret.
+- **Relay Worker (protocol 8).** An IPv6 client counts as its /64, and one address holds at most 4 of the 16 places in the queue.
+- **CI.** The release job runs in a `release` environment, ready for required reviewers.
+- **Room.** Shorter help texts in the four languages paid for part of it; the firmware ends at 499,968 bytes of 500,000 (32 to spare), from 499,088.
+
+Left on purpose: the GitHub certificate on OTA (~1.5 KB, no room; until then someone on the path can still block updates, or make the device reboot into recovery after failed downloads); batching the Worker's state writes (no room for the script); the install counter's count in KV, which is a read-modify-write and only an estimate (a Durable Object would make it exact).
 
 ## Remote access round (2026-10-15)
 
@@ -117,14 +132,14 @@ address does not redirect (GitHub Pages). Never create a repository named
 
 ## Next steps
 
-In order, with an effort estimate. Items that change the firmware need room first: 48 bytes are left. The PZEM-004T energy meter (about 1 KB with its Home Assistant entities) waits for room.
+In order, with an effort estimate. Items that change the firmware need room first: after the review fixes of 2026-11-03 only a few dozen bytes are left (see below). The PZEM-004T energy meter (about 1 KB with its Home Assistant entities) waits for room.
 
 1. **Make room.** The long help texts of the Cloudflare, remote access and ntfy pages (four languages each) and the Worker's own size are the first candidates. Half a day.
 2. **Act on the loop measurements.** Status now shows the slowest loop and how many passed 200 ms, and the log names the service of each new worst. With field numbers, decide what to shorten (the TLS handshakes are the expected culprits). Half a day.
 3. **Stable release channel.** Automatic OTA installs only versions marked as stable; the others stay as beta, for whoever wants them. About 1 day; ~0.2 KB.
 4. **End-to-end test in CI.** Bring the Mosquitto and Home Assistant test, manual today, into CI. About 1 day; does not change the firmware.
-5. **Field diagnostics.** Keep the last crash (address and stack) and show it on the panel; publish heap, Wi-Fi signal and uptime over MQTT. About 1 day; the size depends on how much goes in.
-6. **Battery in the API and MQTT**, and the INA219 ([BATTERY-AND-SOLAR.md](BATTERY-AND-SOLAR.md)). Small.
+5. ~~**Field diagnostics.**~~ Done: Status keeps the last crash, and MQTT publishes heap, Wi-Fi signal and uptime (`d8e20d9`).
+6. **The INA219** ([BATTERY-AND-SOLAR.md](BATTERY-AND-SOLAR.md)). Small. The battery already goes in the API and MQTT state (`6cd2714`).
 7. **Validate GitHub's certificate on OTA.** Today the signature protects the image, but someone in the middle of the connection can block updates. Half a day; ~1.5 KB.
 8. **Smaller pieces:** a physical button, a backup second Wi-Fi, a remote log through ntfy ([PORTING-FROM-TASMOTA.md](PORTING-FROM-TASMOTA.md)).
 
