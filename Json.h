@@ -297,6 +297,9 @@ public:
     }
 
     // Closes the object; the bytes written (or that would be)
+    // false if the file took less than it was given (the file system full)
+    bool ok() const { return !_short; }
+
     size_t end() {
         _put("}", 1);
         return _n;
@@ -305,6 +308,7 @@ public:
 private:
     File*  _f;
     size_t _n = 0;
+    bool   _short = false;
     bool   _first = true;
 
     void _key(PGM_P key) {
@@ -320,7 +324,7 @@ private:
 
     void _put(const char* s, size_t n) {
         _n += n;
-        if (_f) _f->write(reinterpret_cast<const uint8_t*>(s), n);
+        if (_f && _f->write(reinterpret_cast<const uint8_t*>(s), n) != n) _short = true;
     }
 };
 

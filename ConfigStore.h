@@ -124,7 +124,8 @@ public:
         _write(w);
         f.close();
 
-        if (!LittleFS.rename(TMP_PATH, PATH)) {
+        // A file cut short (the file system full) never replaces a good one
+        if (!w.ok() || !LittleFS.rename(TMP_PATH, PATH)) {
             _log.log(LOGP("Could not replace config.json"));
             LittleFS.remove(TMP_PATH);
             return false;

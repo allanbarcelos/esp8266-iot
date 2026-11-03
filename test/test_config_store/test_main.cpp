@@ -651,6 +651,20 @@ void test_save_rename_failure_keeps_original() {
     TEST_ASSERT_TRUE(contains(MockFS::files["/config.json"], "old"));
 }
 
+// The file system full: the temporary file comes out short and the good
+// config stays, instead of a cut JSON that would send the device to setup
+void test_save_cut_short_keeps_original() {
+    MockFS::put("/config.json", R"({"ssid":"old"})");
+    MockFS::room = 20;
+    config.ssid = "new";
+
+    TEST_ASSERT_FALSE(store.save());
+    TEST_ASSERT_TRUE(logHas(logger, "Could not replace"));
+    TEST_ASSERT_EQUAL(0, (int)MockFS::files.count("/config.tmp"));
+    TEST_ASSERT_TRUE(contains(MockFS::files["/config.json"], "old"));
+    MockFS::room = SIZE_MAX;
+}
+
 void test_save_atomic_without_temp_file() {
     TEST_ASSERT_TRUE(store.save());
     TEST_ASSERT_EQUAL(1, (int)MockFS::files.count("/config.json"));
@@ -690,6 +704,7 @@ int main() {
     RUN_TEST(test_plain_password_becomes_a_hash);
     RUN_TEST(test_save_open_fails);
     RUN_TEST(test_save_rename_failure_keeps_original);
+    RUN_TEST(test_save_cut_short_keeps_original);
     RUN_TEST(test_save_atomic_without_temp_file);
     return UNITY_END();
 }

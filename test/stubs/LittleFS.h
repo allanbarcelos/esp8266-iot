@@ -15,10 +15,12 @@ namespace MockFS {
     inline bool failReadOpen  = false;
     inline bool failWriteOpen = false;
     inline bool failRename    = false;
+    inline size_t room        = SIZE_MAX;   // bytes the file system still takes
 
     inline void reset() {
         files.clear();
         beginOk = true; failReadOpen = false; failWriteOpen = false; failRename = false;
+        room = SIZE_MAX;
     }
     inline void put(const char* path, const std::string& content) { files[path] = content; }
 }
@@ -49,8 +51,13 @@ public:
     }
 
     // Writing
-    size_t write(uint8_t c)                  { _data += (char)c; return 1; }
-    size_t write(const uint8_t* b, size_t n) { _data.append((const char*)b, n); return n; }
+    size_t write(uint8_t c)                  { return write(&c, 1); }
+    size_t write(const uint8_t* b, size_t n) {
+        n = std::min(n, MockFS::room);
+        MockFS::room -= MockFS::room == SIZE_MAX ? 0 : n;
+        _data.append((const char*)b, n);
+        return n;
+    }
 
     void close() {
         if (_valid && _writing) MockFS::files[_path] = _data;
