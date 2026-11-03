@@ -108,7 +108,7 @@ function form() {
                     dvi('rh', nm(L('High limit'), 'threshold_hi', c.hi, -999, 9999)))) +
             dvi('rt', sw('window', L('Only within a time window (local time)'), c.wi) +
                 dvi('rw', tm(L('From'), 'win_start', c.w1) + tm(L('To'), 'win_end', c.w2) +
-                    "<p class='m'>" + L('Outside it, automatic mode keeps the actuator off; a manual command holds until auto. Time zone: Settings.') + '</p>')) +
+                    "<p class='m'>" + L('Outside it, automatic mode keeps the actuator off. Time zone: Settings.') + '</p>')) +
             "<p class='m' id='rs'></p>") +
         sw('notify', L('Send readings and changes to ntfy'), c.no) + '<button>' + L('Save') + '</button>';
 }
