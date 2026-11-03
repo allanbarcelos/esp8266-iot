@@ -165,8 +165,8 @@ you own.
   sign-in, CSRF and attempt counts as on the local network (the Worker passes the client's
   address; an IPv6 one is hashed into four bytes). Between the browser and Cloudflare it is HTTPS,
   so the session cookie and the API token never travel in clear. The Worker limits sign-in and API
-  paths to 60 requests per minute per address, refuses bodies over 2 KB and queues at most 16
-  requests. For `/api/state` with the device offline it keeps the last state and an HMAC-SHA1 of
+  paths to 60 requests per minute per address (an IPv6 address counts as its /64), refuses bodies
+  over 2 KB and queues at most 16 requests, 4 from any one address. For `/api/state` with the device offline it keeps the last state and an HMAC-SHA1 of
   the API token keyed with the relay secret, never the token itself. The device only deploys over
   a Worker of the same name that already binds the relay's Durable Object; any other is left
   alone.

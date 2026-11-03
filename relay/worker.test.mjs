@@ -50,7 +50,7 @@ globalThis.Response = class extends RealResponse {
 
 // WORKER: another file to test, such as the minified script the firmware embeds
 const worker = await import(process.env.WORKER ? pathToFileURL(process.env.WORKER).href : './worker.mjs');
-const { Device, same, ipBytes, hmacHex, toResponse } = worker;
+const { Device, same, ipBytes, who, hmacHex, toResponse } = worker;
 const SECRET = 'ab'.repeat(32);
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -138,6 +138,19 @@ test('same compares whole strings', () => {
   assert.ok(same('', ''));
 });
 
+test('who counts an IPv4 address, or an IPv6 /64', () => {
+  assert.equal(who('203.0.113.9'), '203.0.113.9');
+  assert.equal(who('2001:db8:1:2:aaaa:bbbb:cccc:dddd'), '2001:db8:1:2');
+  assert.equal(who('2001:db8:1:2::9'), '2001:db8:1:2');
+  assert.equal(who('2001:db8::1'), '2001:db8:0:0');
+  assert.equal(who('2001:db8:0:0:5:6:7:8'), '2001:db8:0:0');
+  assert.equal(who('2001:db8:1::'), '2001:db8:1:0');
+  assert.equal(who('::1'), ':0:0:0');                  // a key, not a pretty one
+  assert.equal(who('1:2:3:4:5:6:7:8:9'), '1:2:3:4');   // malformed: still a key
+  assert.equal(who('1:2:3:4:5:6:7:8::9'), '1:2:3:4');
+  assert.equal(who(''), '');
+});
+
 test('ipBytes keeps IPv4 and hashes the rest', () => {
   assert.deepEqual(ipBytes('203.0.113.9'), [203, 0, 113, 9]);
   const v6 = ipBytes('2001:db8::1');
@@ -194,10 +207,10 @@ test('toResponse refuses a broken answer', () => {
 // ── the Worker in front ──────────────────────────────────────────────────────
 
 test('relay connection needs WebSocket, version and secret', async () => {
-  const h = (extra) => ({ headers: { Upgrade: 'websocket', 'X-Relay-Version': '7', Authorization: `Bearer ${SECRET}`, ...extra } });
+  const h = (extra) => ({ headers: { Upgrade: 'websocket', 'X-Relay-Version': '8', Authorization: `Bearer ${SECRET}`, ...extra } });
   const go = (init) => worker.default.fetch(new Request('https://r.example/.relay', init), env);
   assert.equal((await go({})).status, 426);
-  assert.equal((await go(h({ 'X-Relay-Version': '6' }))).status, 426);
+  assert.equal((await go(h({ 'X-Relay-Version': '7' }))).status, 426);
   assert.equal((await go(h({ Authorization: 'Bearer nope' }))).status, 401);
   const noAuth = h();
   delete noAuth.headers.Authorization;
@@ -364,22 +377,30 @@ test('sign-in and API requests are limited per address', async () => {
   assert.equal((await anon).status, 200);
   mock.timers.tick(60000);
   assert.equal(await hit('/login'), 200);
+  // Another address in the same IPv6 /64 is the same one
+  for (let i = 0; i < 60; i++) assert.equal(await hit('/login', `2001:db8:1:2::${i.toString(16)}`), 200);
+  assert.equal(await hit('/login', '2001:db8:1:2:ffff::1'), 429);
+  assert.equal(await hit('/login', '2001:db8:1:3::1'), 200);
 });
 
 test('too large, or too many waiting', async () => {
   const big = device.fetch(new Request('https://r.example/save', { method: 'POST', body: 'x'.repeat(2049) }));
   assert.equal((await big).status, 413);
   const ws = await connect();
+  const from = (i) => ({ headers: { 'CF-Connecting-IP': `192.0.2.${i >> 2}` } });
   const waiting = [];
-  for (let i = 0; i < 16; i++) waiting.push(device.fetch(new Request(`https://r.example/${i}`)));
+  for (let i = 0; i < 16; i++) waiting.push(device.fetch(new Request(`https://r.example/${i}`, from(i))));
   await flush();
-  assert.equal((await device.fetch(new Request('https://r.example/17'))).status, 503);
+  assert.equal((await device.fetch(new Request('https://r.example/17', from(99)))).status, 503);
+  // One address holds at most four places: the fifth waits outside
+  assert.equal((await device.fetch(new Request('https://r.example/18', from(0)))).status, 503);
   for (let i = 0; i < 16; i++) {
     await answer(ws, 'HTTP/1.1 200 \r\n\r\n');
     await flush();
   }
   for (const w of waiting) assert.equal((await w).status, 200);
   assert.equal(device.queued, 0);
+  assert.equal(device.held.size, 0);
 });
 
 test('no answer in time', async () => {

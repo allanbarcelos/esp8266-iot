@@ -18,11 +18,12 @@
 // and the latest release on GitHub, once an hour and whenever the device
 // asks for it ('V' up, 'V' down: the tag, or "-" if GitHub did not say).
 
-const VERSION = 7;
+const VERSION = 8;
 const WAIT_MS = 8000;        // a request waits this long for the device to (re)connect
 const REPLY_MS = 20000;      // and this long for its answer
 const MAX_BODY = 2048;       // HttpServer::MAX_BODY
 const MAX_QUEUE = 16;
+const MAX_HELD = 4;          // of those, from one address: nobody fills the queue alone
 const RATE = 60;             // sign-in and API requests per minute per address
 // What checks a password, a code or the API token: counted per address
 const LIMITED = /^\/(api\/|login$|mfa(\/reset)?$|password\/save$|iot\/clear$)/;
@@ -53,6 +54,12 @@ export function ipBytes(ip) {
   for (let i = 0; i < ip.length; i++) h = Math.imul(h ^ ip.charCodeAt(i), 16777619) >>> 0;
   return [h >>> 24, (h >>> 16) & 255, (h >>> 8) & 255, h & 255];
 }
+
+// Who is counted: an IPv4 address, or an IPv6 address's /64 (a home or a
+// server has the whole /64, and could rotate through it): "::" filled with
+// the zero groups it stands for, then the first four groups
+export const who = (ip) =>
+  ip.replace('::', ':' + '0:'.repeat(Math.max(0, 9 - ip.split(':').length))).split(':').slice(0, 4).join(':');
 
 export async function hmacHex(key, msg) {
   const k = await crypto.subtle.importKey('raw', enc.encode(key), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
@@ -121,6 +128,7 @@ export class Device {
     this.waiters = [];
     this.minute = 0;
     this.counts = new Map();
+    this.held = new Map();
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
   }
 
@@ -128,25 +136,32 @@ export class Device {
     const url = new URL(req.url);
     if (url.pathname === '/.relay') return this.accept(req);
     const ip = req.headers.get('CF-Connecting-IP') || '';
-    if (LIMITED.test(url.pathname) && !this.allow(ip)) return text(429, 'Too many requests');
+    const key = who(ip);
+    if (LIMITED.test(url.pathname) && !this.allow(key)) return text(429, 'Too many requests');
     const body = new Uint8Array(await req.arrayBuffer());
     if (body.length > MAX_BODY) return text(413, 'Too large');
-    if (this.queued >= MAX_QUEUE) return text(503, 'Device busy');
+    const held = this.held.get(key) || 0;
+    if (this.queued >= MAX_QUEUE || held >= MAX_HELD) return text(503, 'Device busy');
     this.queued++;
+    this.held.set(key, held + 1);
     const run = this.chain.then(() => this.forward(req, url, ip, body));
-    const free = () => this.queued--;
+    const free = () => {
+      this.queued--;
+      const n = this.held.get(key) - 1;
+      n ? this.held.set(key, n) : this.held.delete(key);
+    };
     this.chain = run.then(free, free);
     return run;
   }
 
-  allow(ip) {
+  allow(key) {
     const minute = Math.floor(Date.now() / 60000);
     if (minute !== this.minute) {
       this.minute = minute;
       this.counts.clear();
     }
-    const n = (this.counts.get(ip) || 0) + 1;
-    this.counts.set(ip, n);
+    const n = (this.counts.get(key) || 0) + 1;
+    this.counts.set(key, n);
     return n <= RATE;
   }
 
