@@ -24,7 +24,8 @@
 // sign-in as on the local network, and the answer goes back up.
 //
 // Frames (binary, first byte = type; id = 16 bits, big endian):
-//   'R' id ip[4] request    Worker → device: raw HTTP request, client IPv4
+//   'R' id ip[4] n addr[n] request  Worker → device: raw HTTP request, client IPv4
+//                           (IPv6 hashed) and its address as text, for the log
 //   'D' id bytes            device → Worker: a piece of the answer
 //   'E' id                  device → Worker: the answer is complete
 //   'H' json                device → Worker: hello, after connecting
@@ -42,7 +43,7 @@
 // relay stays down longer than GRACE_MS, the ntfy stream takes over.
 class RelayService : public PostLink {
 public:
-    static constexpr uint8_t       PROTOCOL      = 8;
+    static constexpr uint8_t       PROTOCOL      = 9;
     static constexpr unsigned long CONNECT_MS    = 5000UL;
     static constexpr unsigned long RECONNECT_MS  = 2000UL;
     static constexpr unsigned long PING_MS       = 30000UL;
@@ -151,6 +152,7 @@ private:
             _r._s->ws.send(WsClient::BINARY, h, sizeof(h), p, n);
         }
         uint32_t remoteIP() override { return _r._ip; }
+        const char* from() override { return _r._from; }
     private:
         RelayService& _r;
     };
@@ -179,6 +181,7 @@ private:
     uint16_t      _backoff = 5;
     uint16_t      _id = 0;
     uint32_t      _ip = 0;
+    char          _from[46] = "";   // the client's address as the Worker saw it
     uint32_t      _sum = 0;      // of the last state sent
     char          _public[16] = {};
     char          _latest[16] = {};
@@ -282,14 +285,22 @@ private:
         }
     }
 
-    // id, client address, then the request itself through HttpServer
+    // id, client address (4 bytes for the sign-in counts, then its length
+    // and text for the log), then the request itself through HttpServer
     void _request() {
-        uint8_t h[6];
+        uint8_t h[7];
         for (uint8_t& b : h) {
             int c = _s->ws.next();
             if (c < 0) return;
             b = (uint8_t)c;
         }
+        size_t k = 0;
+        for (uint8_t i = 0; i < h[6]; i++) {
+            int c = _s->ws.next();
+            if (c < 0) return;
+            if (k < sizeof(_from) - 1) _from[k++] = (char)c;
+        }
+        _from[k] = '\0';
         _id = (uint16_t)(h[0] << 8 | h[1]);
         _ip = (uint32_t)h[2] | (uint32_t)h[3] << 8 | (uint32_t)h[4] << 16 | (uint32_t)h[5] << 24;
         _http.serve(_link);

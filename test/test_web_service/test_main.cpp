@@ -718,7 +718,7 @@ void test_cloudflare_clear() {
     TEST_ASSERT_EQUAL(200, f.srv.code);
     TEST_ASSERT_TRUE(contains(f.out(), "Cloudflare token and settings removed"));
     TEST_ASSERT_TRUE(contains(f.out(), "url=/config'>"));
-    TEST_ASSERT_TRUE(logHas(logger, "Cloudflare: token and settings removed"));
+    TEST_ASSERT_TRUE(logHas(logger, "Web: POST /cloudflare/clear 200 from "));
     const char* gone[] = {cfg.cf_token, cfg.cf_zone, cfg.cf_record, cfg.cf_host, cfg.cf_account,
                           cfg.relay_host, cfg.relay_name, cfg.relay_zone, cfg.relay_secret};
     for (const char* s : gone) TEST_ASSERT_EQUAL_STRING("", s);
@@ -3213,6 +3213,24 @@ void test_log_says_where_the_command_came_from() {
     TEST_ASSERT_TRUE(logHas(logger, "API: command \"off\""));
 }
 
+// Every POST goes to the log with its answer and the address it came from;
+// a GET does not (Home Assistant reads the state all the time)
+void test_actions_are_logged_with_the_address() {
+    strlcpy(cfg.api_token, TOKEN, sizeof(cfg.api_token));
+    actuatorCfg("relay", 0);
+    Fixture f;
+    f.iot.begin();
+    f.post("/iot/cmd", {{"cmd", "on"}});
+    TEST_ASSERT_TRUE(logHas(logger, "Web: POST /iot/cmd 200 from 192.168.1.10"));
+    f.srv.ip = 0x0B02A8C0;                                    // 192.168.2.11
+    api(f, HTTP_POST, "/api/cmd", "Bearer ffffffffffffffffffffffffffffffff", {{"cmd", "off"}});
+    TEST_ASSERT_TRUE(logHas(logger, "Web: POST /api/cmd 401 from 192.168.2.11"));
+    int logged = logCount(logger, "Web: ");
+    f.get("/status");
+    api(f, HTTP_GET, "/api/state", (std::string("Bearer ") + TOKEN).c_str());
+    TEST_ASSERT_EQUAL(logged, logCount(logger, "Web: "));
+}
+
 static bool secretFrom(const std::string& html, uint8_t key[Totp::KEY_LEN]) {
     const char* mark = "class='k'>";
     auto p = html.find(mark);
@@ -3244,7 +3262,7 @@ void test_authenticator_is_required() {
     TEST_ASSERT_TRUE(contains(f.srv.headers["Set-Cookie"], "SameSite=Strict"));
     TEST_ASSERT_TRUE(contains(f.srv.headers["Set-Cookie"], "Max-Age=43200"));
     TEST_ASSERT_FALSE(contains(f.srv.headers["Set-Cookie"], "Secure"));
-    TEST_ASSERT_TRUE(logHas(logger, "Panel: signed in"));
+    TEST_ASSERT_TRUE(logHas(logger, "Web: POST /login 302 from 192.168.1.10"));
     f.keepCookie();
     f.srv.authOk = true;
 
@@ -3296,7 +3314,7 @@ void test_authenticator_is_required() {
     TEST_ASSERT_EQUAL(302, f.srv.code);
     TEST_ASSERT_EQUAL_STRING("/", f.srv.headers["Location"].c_str());
     TEST_ASSERT_EQUAL_MEMORY(key, cfg.totp, Totp::KEY_LEN);
-    TEST_ASSERT_TRUE(logHas(logger, "Panel: authenticator on"));
+    TEST_ASSERT_TRUE(logHas(logger, "Web: POST /mfa 302 from "));
     TEST_ASSERT_TRUE(contains(MockFS::files["/config.json"], "\"ots\":"));
 
     // The signed-in session is a new cookie: one seen during setup is worth nothing
@@ -3684,7 +3702,7 @@ void test_replace_authenticator() {
     f.post("/mfa/reset", {{"pass", "strong-pass"}, {"code", good}});
     TEST_ASSERT_EQUAL(302, f.srv.code);
     TEST_ASSERT_EQUAL_STRING("/mfa", f.srv.headers["Location"].c_str());
-    TEST_ASSERT_TRUE(logHas(logger, "Panel: authenticator reset"));
+    TEST_ASSERT_TRUE(logHas(logger, "Web: POST /mfa/reset 302 from "));
     // Nothing changes until a code from the new key: the current one stays
     TEST_ASSERT_EQUAL_MEMORY(PANEL_TOTP, cfg.totp, sizeof(PANEL_TOTP));
     TEST_ASSERT_EQUAL_UINT32((uint32_t)(PANEL_TIME / 30), cfg.totpStep);
@@ -3823,7 +3841,7 @@ void test_enroll_post_rejects_bad_csrf() {
     f.srv.request(HTTP_POST, "/mfa", {{"_csrf", "00000000deadbeef"}, {"code", "000000"}});
     TEST_ASSERT_EQUAL(403, f.srv.code);
     TEST_ASSERT_TRUE(Totp::blank(cfg.totp));
-    TEST_ASSERT_FALSE(logHas(logger, "Panel: authenticator on"));
+    TEST_ASSERT_TRUE(logHas(logger, "Web: POST /mfa 403 from "));
 }
 
 void test_unix_time() {
@@ -3987,5 +4005,6 @@ int main() {
     RUN_TEST(test_security_headers);
     RUN_TEST(test_session_tied_to_the_local_address);
     RUN_TEST(test_log_says_where_the_command_came_from);
+    RUN_TEST(test_actions_are_logged_with_the_address);
     return UNITY_END();
 }

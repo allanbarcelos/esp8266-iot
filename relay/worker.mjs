@@ -18,7 +18,7 @@
 // and the latest release on GitHub, once an hour and whenever the device
 // asks for it ('V' up, 'V' down: the tag, or "-" if GitHub did not say).
 
-const VERSION = 8;
+const VERSION = 9;
 const WAIT_MS = 8000;        // a request waits this long for the device to (re)connect
 const REPLY_MS = 20000;      // and this long for its answer
 const MAX_BODY = 2048;       // HttpServer::MAX_BODY
@@ -198,10 +198,11 @@ export class Device {
     }
     if (body.length) head += `Content-Length: ${body.length}\r\n`;
     const h = enc.encode(head + '\r\n');
-    const frame = new Uint8Array(7 + h.length + body.length);
-    frame.set([82, id >> 8, id & 255, ...ipBytes(ip)]);
-    frame.set(h, 7);
-    frame.set(body, 7 + h.length);
+    const a = enc.encode(ip).subarray(0, 45);   // the address as text, for the device's log
+    const frame = new Uint8Array(8 + a.length + h.length + body.length);
+    frame.set([82, id >> 8, id & 255, ...ipBytes(ip), a.length, ...a]);
+    frame.set(h, 8 + a.length);
+    frame.set(body, 8 + a.length + h.length);
     return new Promise((resolve) => {
       const parts = [];
       const done = (res) => {

@@ -207,10 +207,10 @@ test('toResponse refuses a broken answer', () => {
 // ── the Worker in front ──────────────────────────────────────────────────────
 
 test('relay connection needs WebSocket, version and secret', async () => {
-  const h = (extra) => ({ headers: { Upgrade: 'websocket', 'X-Relay-Version': '8', Authorization: `Bearer ${SECRET}`, ...extra } });
+  const h = (extra) => ({ headers: { Upgrade: 'websocket', 'X-Relay-Version': '9', Authorization: `Bearer ${SECRET}`, ...extra } });
   const go = (init) => worker.default.fetch(new Request('https://r.example/.relay', init), env);
   assert.equal((await go({})).status, 426);
-  assert.equal((await go(h({ 'X-Relay-Version': '7' }))).status, 426);
+  assert.equal((await go(h({ 'X-Relay-Version': '8' }))).status, 426);
   assert.equal((await go(h({ Authorization: 'Bearer nope' }))).status, 401);
   const noAuth = h();
   delete noAuth.headers.Authorization;
@@ -256,8 +256,10 @@ test('a request goes down as an R frame and the answer comes back', async () => 
   assert.equal(f[0], 82);
   assert.deepEqual([...f.subarray(1, 3)], [0, 1]);
   assert.deepEqual([...f.subarray(3, 7)], [198, 51, 100, 7]);
+  assert.equal(f[7], 12);                                       // the address as text
+  assert.equal(dec.decode(f.subarray(8, 20)), '198.51.100.7');
   assert.equal(
-    dec.decode(f.subarray(7)),
+    dec.decode(f.subarray(20)),
     'POST /login?next=%2F HTTP/1.1\r\nHost: esp.example.com\r\nAuthorization: Bearer t\r\nCookie: sid=x\r\n' +
       'Content-Type: application/x-www-form-urlencoded\r\nContent-Length: 13\r\n\r\nuser=a&pass=b',
   );

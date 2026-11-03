@@ -31,6 +31,9 @@ public:
     virtual bool     connected() = 0;
     virtual void     write(const uint8_t* p, size_t n) = 0;
     virtual uint32_t remoteIP() = 0;
+    // The client's address as text when the link knows it better than
+    // remoteIP() (the relay: an IPv6 address); nullptr otherwise
+    virtual const char* from() { return nullptr; }
 protected:
     ~HttpLink() = default;
 };
@@ -101,6 +104,8 @@ public:
     // name longer than the buffer, or with no name before the port, is "?".
     const char*   host() const           { return _host; }
     uint32_t      remoteIP()             { return _link->remoteIP(); }
+    const char*   from()                 { return _link->from(); }
+    int           code() const           { return _code; }
     // From the local network (not through the remote access relay)
     bool          local() const          { return _link == &_socket; }
 
@@ -166,6 +171,7 @@ private:
     void*         _ctx     = nullptr;
     unsigned long _since   = 0;
     unsigned long _start   = 0;     // the request started arriving
+    int           _code    = 0;     // the status of the answer (for the log)
     bool          _late    = false; // REQUEST_MS ran out
 
     uint8_t _method = OTHER;
@@ -194,6 +200,7 @@ private:
         _used = 0;
         _start = millis();
         _late = false;
+        _code = 0;
 
         int code = _parse();
         if (code && _late) code = 408;
@@ -314,6 +321,7 @@ private:
     }
 
     void _head(int code, const char* type) {
+        _code = code;
         char line[96];
         snprintf_P(line, sizeof(line), PSTR("HTTP/1.1 %d \r\nContent-Type: %s\r\n"), code, type);
         _put(line, strlen(line), false);

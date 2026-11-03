@@ -199,7 +199,7 @@ void test_tick_runs_the_relay() {
     MockFS::put("/config.json", R"({"v":2,"ssid":"Home","pass":"12345678",
         "webpss":"strong-pass","ota_auto":false,"ntfy_cmd":"cmd-x","ntfy_topic":"data-x",
         "actuator":"relay","actuator_pin":0,"notify":true,
-        "relay_host":"esp-pump.example.com","relay_ver":8,
+        "relay_host":"esp-pump.example.com","relay_ver":9,
         "relay_key":"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"})");
     App app;
     app.begin();
@@ -221,7 +221,7 @@ void test_tick_runs_the_relay() {
     TEST_ASSERT_EQUAL_STRING("connected", app.relay.status());
     TEST_ASSERT_EQUAL_STRING("relay", app.ntfy.commandStatus());
 
-    std::string r = std::string("R\x00\x01\x00\x00\x00\x00", 7) +
+    std::string r = std::string("R\x00\x01\x00\x00\x00\x00\x00", 8) +
                     "GET /login HTTP/1.1\r\nHost: esp-pump.example.com\r\n\r\n";
     MockTLS::live->inject(serverFrame(WsClient::BINARY, r));
     setMillis(2100);
@@ -231,6 +231,14 @@ void test_tick_runs_the_relay() {
     for (ClientFrame f = takeClientFrame(MockTLS::wire, at); f.ok; f = takeClientFrame(MockTLS::wire, at))
         if (f.payload[0] == 'D') answer += f.payload.substr(3);
     TEST_ASSERT_TRUE(answer.rfind("HTTP/1.1 200 ", 0) == 0);
+
+    // An action from outside: the log has the address the Worker saw
+    r = std::string("R\x00\x02\x01\x02\x03\x04\x0b", 8) + "2001:db8::7" +
+        "POST /logout HTTP/1.1\r\nHost: esp-pump.example.com\r\n\r\n";
+    MockTLS::live->inject(serverFrame(WsClient::BINARY, r));
+    app.tick();
+    TEST_ASSERT_TRUE(logHas(app.logger, "Web: POST /logout "));
+    TEST_ASSERT_TRUE(logHas(app.logger, " from 2001:db8::7 (relay)"));
 
     // An ntfy post goes up the relay: its Worker sends it, the relay stays
     app.iot.command("on", 2100);
@@ -342,7 +350,7 @@ void test_tick_redeploys_an_outdated_relay() {
 void test_tick_falls_back_to_the_ntfy_stream() {
     MockFS::put("/config.json", R"({"v":2,"ssid":"Home","pass":"12345678","webpss":"strong-pass",
         "ota_auto":false,"ntfy_cmd":"cmd-x","actuator":"relay","actuator_pin":0,
-        "relay_host":"esp-pump.example.com","relay_ver":8,"relay_key":"00"})");
+        "relay_host":"esp-pump.example.com","relay_ver":9,"relay_key":"00"})");
     App app;
     app.begin();
     MockTLS::failConnect = true;
@@ -440,7 +448,7 @@ void test_tick_waits_for_memory_before_a_check() {
 // slowest loop
 void test_tick_relay_waits_and_slow_loops_are_logged() {
     MockFS::put("/config.json", R"({"ssid":"Home","pass":"12345678","webpss":"strong-pass",
-        "ota_auto":false,"relay_host":"esp-pump.example.com","relay_ver":8,"relay_key":"00"})");
+        "ota_auto":false,"relay_host":"esp-pump.example.com","relay_ver":9,"relay_key":"00"})");
     App app;
     app.begin();
     ESP._heap = PublicIPResolver::MIN_TLS_HEAP - 1;

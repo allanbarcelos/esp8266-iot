@@ -386,7 +386,11 @@ private:
         for (size_t i = 0; i < ROUTE_COUNT; i++) {
             Route r;
             memcpy_P(&r, &ROUTES[i], sizeof(r));
-            if (r.method == m && !strcmp_P(p, r.path)) return r.handler(*this);
+            if (r.method == m && !strcmp_P(p, r.path)) {
+                r.handler(*this);
+                if (m == HttpServer::POST) _logAction(p);
+                return;
+            }
         }
         for (size_t i = 0; i < ASSET_COUNT; i++) {
             Asset f;
@@ -395,6 +399,17 @@ private:
                 return _asset(f.type, f.data, f.len);
         }
         _server.send(404, "text/plain", "");
+    }
+
+    // Every action (a POST: sign-in, sign-out, a save, a command, an update)
+    // goes to the log with its answer and where it came from: the address
+    // at home, or the one the relay's Worker saw (IPv6 too) from outside.
+    // GETs are not logged: Home Assistant reads the state all the time.
+    void _logAction(const char* path) {
+        const char* via = _server.from();
+        String ip = IPAddress(_server.remoteIP()).toString();
+        _log.log(LOGP("Web: POST %s %d from %s%s"), path, _server.code(), via ? via : ip.c_str(),
+                 via ? " (relay)" : "");
     }
 
     // ── Security ──────────────────────────────────────────────────────────────
@@ -1761,7 +1776,6 @@ private:
             return;
         }
         LittleFS.remove(CloudflareSetup::ZONES_PATH);
-        _log.log(LOGP("Cloudflare: token and settings removed"));
         _savedPage(H(L_CF_CLEARED), P_CONFIG);
     }
 
@@ -1970,7 +1984,6 @@ private:
         // A key shown to an earlier session is not offered again
         _pendingSet = false;
         _startSession(mfa ? 2 : 1);
-        _log.log(LOGP("Panel: signed in"));
         _redirect(mfa ? "/" : "/mfa");
     }
 
@@ -2024,7 +2037,6 @@ private:
         _pendingSet = false;
         _startSession(2);
         _signedIn();
-        _log.log(LOGP("Panel: authenticator on"));
         _redirect("/");
     }
 
@@ -2040,7 +2052,6 @@ private:
         _ensurePending();
         _startSession(1);
         _signedIn();
-        _log.log(LOGP("Panel: authenticator reset"));
         _redirect("/mfa");
     }
 
@@ -2657,7 +2668,6 @@ private:
         LittleFS.remove(IoTState::PATH);
         LittleFS.remove(IoTService::SCHEDULE_PATH);
         _iot.begin();
-        _log.log(LOGP("IoT: sensor and actuator removed"));
         _savedPage(H(L_IOT_CLEARED), P_IOT);
     }
 

@@ -36,7 +36,7 @@ struct Rig {
     IoTService   iot{cfg, logger};
     NtfyNotifier ntfy{cfg, logger, clock, &iot};
     RelayService relay;
-    std::string  lastPath, lastBody;
+    std::string  lastPath, lastBody, lastFrom;
     uint32_t     lastIp = 0;
     size_t       at = 0;   // frames already read from the wire
 
@@ -50,6 +50,7 @@ struct Rig {
         r.lastPath = r.http.path();
         r.lastBody = r.http.arg("plain").c_str();
         r.lastIp = r.http.remoteIP();
+        r.lastFrom = r.http.from() ? r.http.from() : "(none)";
         r.http.send(200, "text/plain", String("at ") + r.http.path());
     }
 
@@ -70,13 +71,15 @@ struct Rig {
     }
 };
 
-static std::string req(uint16_t id, const std::string& http, const uint8_t ip[4] = nullptr) {
+static std::string req(uint16_t id, const std::string& http, const uint8_t ip[4] = nullptr, const std::string& from = "") {
     static const uint8_t ZERO[4] = {0, 0, 0, 0};
     const uint8_t* a = ip ? ip : ZERO;
     std::string p = "R";
     p += (char)(id >> 8);
     p += (char)id;
     p.append(reinterpret_cast<const char*>(a), 4);
+    p += (char)from.size();
+    p += from;
     return serverFrame(WsClient::BINARY, p + http);
 }
 
@@ -122,7 +125,7 @@ void test_connects_with_secret_and_checked_certificate() {
     TEST_ASSERT_TRUE(h.rfind("GET /.relay HTTP/1.1\r\n", 0) == 0);
     TEST_ASSERT_TRUE(contains(h, "\r\nHost: esp-pump.example.com\r\n"));
     TEST_ASSERT_TRUE(contains(h, (std::string("\r\nAuthorization: Bearer ") + SECRET + "\r\n").c_str()));
-    TEST_ASSERT_TRUE(contains(h, "\r\nX-Relay-Version: 8\r\n"));
+    TEST_ASSERT_TRUE(contains(h, "\r\nX-Relay-Version: 9\r\n"));
     TEST_ASSERT_TRUE(cloudflareTrust(MockTLS::lastTrust));
     TEST_ASSERT_EQUAL((long)fakeNow, (long)MockTLS::lastTime);
     TEST_ASSERT_EQUAL(0, MockTLS::insecureCalls);
@@ -131,21 +134,21 @@ void test_connects_with_secret_and_checked_certificate() {
     auto frames = r.drain();
     TEST_ASSERT_EQUAL(1, (int)frames.size());
     TEST_ASSERT_EQUAL(WsClient::BINARY, frames[0].op);
-    TEST_ASSERT_EQUAL_STRING("H{\"v\":8,\"fw\":\"dev\",\"api\":\"\"}", frames[0].payload.c_str());
+    TEST_ASSERT_EQUAL_STRING("H{\"v\":9,\"fw\":\"dev\",\"api\":\"\"}", frames[0].payload.c_str());
 }
 
 void test_hello_carries_a_keyed_hash_of_the_api_token() {
     strlcpy(cfg.api_token, "0123456789abcdef0123456789abcdef", sizeof(cfg.api_token));
     Rig r;
     r.open();
-    std::string want = "H{\"v\":8,\"fw\":\"dev\",\"api\":\"" + hmacHex(SECRET, cfg.api_token) + "\"}";
+    std::string want = "H{\"v\":9,\"fw\":\"dev\",\"api\":\"" + hmacHex(SECRET, cfg.api_token) + "\"}";
     TEST_ASSERT_EQUAL_STRING(want.c_str(), r.next().payload.c_str());
     TEST_ASSERT_FALSE(contains(MockTLS::wire, cfg.api_token));
 
     // A new token goes up in a new hello, within STATE_MS
     strlcpy(cfg.api_token, "ffff456789abcdef0123456789abcdef", sizeof(cfg.api_token));
     r.relay.tick(RelayService::STATE_MS);
-    want = "H{\"v\":8,\"fw\":\"dev\",\"api\":\"" + hmacHex(SECRET, cfg.api_token) + "\"}";
+    want = "H{\"v\":9,\"fw\":\"dev\",\"api\":\"" + hmacHex(SECRET, cfg.api_token) + "\"}";
     TEST_ASSERT_EQUAL_STRING(want.c_str(), r.next().payload.c_str());
     r.relay.tick(2 * RelayService::STATE_MS);
     TEST_ASSERT_FALSE(r.next().ok);
@@ -249,6 +252,7 @@ void test_request_answered_through_the_server() {
     TEST_ASSERT_EQUAL_STRING("/x", r.lastPath.c_str());
     TEST_ASSERT_EQUAL_STRING("abc", r.lastBody.c_str());
     TEST_ASSERT_EQUAL_HEX32(0x097100CB, r.lastIp);   // 203.0.113.9, as IPAddress keeps it
+    TEST_ASSERT_EQUAL_STRING("", r.lastFrom.c_str()); // no address text from the Worker
 
     std::string answer;
     auto frames = r.drain();
@@ -273,6 +277,28 @@ void test_bytes_past_the_request_are_skipped() {
     int ends = 0;
     for (auto& f : r.drain()) ends += f.payload[0] == 'E';
     TEST_ASSERT_EQUAL(2, ends);
+}
+
+// The Worker also sends the client's address as text (IPv6 whole), for the
+// log; longer than the room is cut, and a frame that ends inside it is dropped
+void test_request_carries_the_address_as_text() {
+    Rig r;
+    r.open();
+    r.drain();
+    r.inject(req(1, "GET /a HTTP/1.1\r\nHost: esp-pump.example.com\r\n\r\n", nullptr, "2001:db8::1"));
+    r.relay.tick(100);
+    TEST_ASSERT_EQUAL_STRING("/a", r.lastPath.c_str());
+    TEST_ASSERT_EQUAL_STRING("2001:db8::1", r.lastFrom.c_str());
+    r.drain();
+    r.inject(req(2, "GET /b HTTP/1.1\r\nHost: esp-pump.example.com\r\n\r\n", nullptr, std::string(60, '9')));
+    r.relay.tick(200);
+    TEST_ASSERT_EQUAL_STRING("/b", r.lastPath.c_str());
+    TEST_ASSERT_EQUAL_STRING(std::string(45, '9').c_str(), r.lastFrom.c_str());
+    r.drain();
+    r.inject(serverFrame(WsClient::BINARY, std::string("R\x00\x03\x00\x00\x00\x00\x05" "ab", 10)));
+    r.relay.tick(300);
+    TEST_ASSERT_EQUAL_STRING("/b", r.lastPath.c_str());       // not served
+    TEST_ASSERT_TRUE(r.relay.up());
 }
 
 void test_cut_request_header_is_dropped() {
@@ -483,7 +509,7 @@ void test_hello_carries_the_ntfy_commands() {
     r.ntfy.deliver(ntfyLine("abc123", "off").c_str(), 0);
     r.open();
     TEST_ASSERT_EQUAL_STRING(
-        "H{\"v\":8,\"fw\":\"dev\",\"api\":\"\",\"host\":\"ntfy.sh\",\"topic\":\"cmd-abc\",\"token\":\"tk_x\","
+        "H{\"v\":9,\"fw\":\"dev\",\"api\":\"\",\"host\":\"ntfy.sh\",\"topic\":\"cmd-abc\",\"token\":\"tk_x\","
         "\"poll\":10,\"since\":\"abc123\"}",
         r.next().payload.c_str());
 
@@ -652,6 +678,7 @@ int main() {
     RUN_TEST(test_hold_and_wifi_close_the_connection);
     RUN_TEST(test_request_answered_through_the_server);
     RUN_TEST(test_bytes_past_the_request_are_skipped);
+    RUN_TEST(test_request_carries_the_address_as_text);
     RUN_TEST(test_cut_request_header_is_dropped);
     RUN_TEST(test_incomplete_request_gets_400);
     RUN_TEST(test_payload_that_stops_arriving);
