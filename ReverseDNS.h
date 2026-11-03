@@ -22,9 +22,11 @@ public:
         _close();
         out[0] = '\0';
         uint8_t q[48];
-        size_t n = query(ip, ++_id, q, sizeof(q));
+        _id = (uint16_t)ESP.random();   // hardware RNG: an id to guess, not the next one
+        size_t n = query(ip, _id, q, sizeof(q));
         IPAddress dns = WiFi.dnsIP();
         if (n == 0 || !dns.isSet()) return;
+        _dns = (uint32_t)dns;
         pbuf* p = pbuf_alloc(PBUF_TRANSPORT, (u16_t)n, PBUF_RAM);
         if (!p) return;
         _pcb = udp_new();
@@ -91,20 +93,25 @@ private:
     size_t        _len = 0;
     unsigned long _sentAt = 0;
     uint16_t      _id = 0;
+    uint32_t      _dns = 0;   // the server asked: the answer must come from it
 
     void _close() {
         if (_pcb) udp_remove(_pcb);
         _pcb = nullptr;
     }
 
-    // Answer in a single pbuf (a PTR answer fits); any answer ends the query
-    static void _onRecv(void* arg, udp_pcb*, pbuf* p, const ip_addr_t*, u16_t) {
+    // Answer in a single pbuf (a PTR answer fits). Only from the server
+    // asked, port 53, with the query's id: anything else is dropped and the
+    // query waits on, so a packet forged from elsewhere neither names the
+    // IP nor ends the lookup.
+    static void _onRecv(void* arg, udp_pcb*, pbuf* p, const ip_addr_t* from, u16_t port) {
         ReverseDNS* self = static_cast<ReverseDNS*>(arg);
-        if (p->len == p->tot_len)
-            parse(static_cast<const uint8_t*>(p->payload), p->len, self->_id,
-                  self->_out, self->_len);
+        const uint8_t* m = static_cast<const uint8_t*>(p->payload);
+        if (ip_addr_get_ip4_u32(from) == self->_dns && port == 53 && p->len >= 2 && _u16(m) == self->_id) {
+            if (p->len == p->tot_len) parse(m, p->len, self->_id, self->_out, self->_len);
+            self->_close();
+        }
         pbuf_free(p);
-        self->_close();
     }
 
     static uint16_t _u16(const uint8_t* p) { return (uint16_t)(p[0] << 8 | p[1]); }

@@ -136,10 +136,24 @@ void test_asks_network_dns_and_reads_answer() {
     TEST_ASSERT_TRUE(r.pending());
     TEST_ASSERT_EQUAL(0x0101A8C0u, MockUDP::to);
     TEST_ASSERT_EQUAL(53, MockUDP::port);
-    TEST_ASSERT_TRUE(MockUDP::sent == ask("1.2.3.4", 1));
+    uint16_t id = (uint16_t)((uint8_t)MockUDP::sent[0] << 8 | (uint8_t)MockUDP::sent[1]);
+    TEST_ASSERT_TRUE(MockUDP::sent == ask("1.2.3.4", id));
     TEST_ASSERT_EQUAL(0, MockUDP::pbufs);
 
-    MockUDP::deliver(answer(MockUDP::sent, record(12, label("home.isp.net")), 1));
+    // Forged: from another address, another port, with another id, or too
+    // short for an id. Dropped; the query waits on
+    std::string good = answer(MockUDP::sent, record(12, label("home.isp.net")), 1);
+    std::string otherId = good;
+    otherId[1] = (char)(otherId[1] ^ 1);
+    MockUDP::deliver(answer(MockUDP::sent, record(12, label("evil.net")), 1), 0, 0x0505A8C0);
+    MockUDP::deliver(answer(MockUDP::sent, record(12, label("evil.net")), 1), 0, 0, 5353);
+    MockUDP::deliver(otherId);
+    MockUDP::deliver(std::string(1, '\x01'));
+    TEST_ASSERT_EQUAL_STRING("", host);
+    TEST_ASSERT_TRUE(r.pending());
+    TEST_ASSERT_EQUAL(0, MockUDP::pbufs);
+
+    MockUDP::deliver(good);
     TEST_ASSERT_EQUAL_STRING("home.isp.net", host);
     TEST_ASSERT_FALSE(r.pending());
     TEST_ASSERT_EQUAL(0, MockUDP::live);
@@ -153,7 +167,8 @@ void test_new_query_and_answer_in_pieces() {
     r.lookup("1.2.3.4", host, sizeof(host), 0);
     r.lookup("5.6.7.8", host, sizeof(host), 0);
     TEST_ASSERT_EQUAL(1, MockUDP::live);
-    TEST_ASSERT_TRUE(MockUDP::sent == ask("5.6.7.8", 2));
+    uint16_t id = (uint16_t)((uint8_t)MockUDP::sent[0] << 8 | (uint8_t)MockUDP::sent[1]);
+    TEST_ASSERT_TRUE(MockUDP::sent == ask("5.6.7.8", id));
 
     MockUDP::deliver(answer(MockUDP::sent, record(12, label("a.b")), 1), 10);
     TEST_ASSERT_EQUAL_STRING("", host);

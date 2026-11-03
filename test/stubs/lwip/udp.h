@@ -12,6 +12,7 @@
 typedef uint16_t u16_t;
 struct ip_addr_t { uint32_t addr; };
 #define ip_addr_set_ip4_u32(ip, val) ((ip)->addr = (val))
+#define ip_addr_get_ip4_u32(ip) ((ip)->addr)
 
 enum pbuf_layer { PBUF_TRANSPORT };
 enum pbuf_type  { PBUF_RAM };
@@ -75,11 +76,13 @@ inline void pbuf_free(pbuf* p) {
 
 namespace MockUDP {
     // DNS server answer arriving at the open pcb; tot_len larger than
-    // len simulates an answer in several pbufs
-    inline void deliver(const std::string& data, u16_t extra = 0) {
+    // len simulates an answer in several pbufs. From the address asked and
+    // port 53 unless told otherwise (a forged packet).
+    inline void deliver(const std::string& data, u16_t extra = 0, uint32_t from = 0, u16_t fromPort = 53) {
         pbuf* p = pbuf_alloc(PBUF_TRANSPORT, (u16_t)data.size(), PBUF_RAM);
         std::copy(data.begin(), data.end(), static_cast<char*>(p->payload));
         p->tot_len = (u16_t)(p->len + extra);
-        last->recv(last->arg, last, p, nullptr, 53);
+        ip_addr_t addr{from ? from : to};
+        last->recv(last->arg, last, p, &addr, fromPort);
     }
 }
