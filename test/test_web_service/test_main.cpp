@@ -2780,6 +2780,11 @@ void test_actuator_schedule() {
     MockFS::failWriteOpen = false;
     TEST_ASSERT_EQUAL_STRING("10 540 on\n10 660 off\n64 600 pulse 5", MockFS::files["/schedule"].c_str());
 
+    // A NUL ends the check: what follows it is not saved either
+    f.post("/actuator/schedule", {{"s", std::string("1 0 off\0junk", 12)}});
+    TEST_ASSERT_EQUAL(303, f.srv.code);
+    TEST_ASSERT_EQUAL(7, (int)MockFS::files["/schedule"].size());
+
     // Deleting the last one leaves an empty list
     f.post("/actuator/schedule", {{"s", ""}});
     TEST_ASSERT_EQUAL(303, f.srv.code);

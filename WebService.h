@@ -2710,7 +2710,8 @@ private:
             _errorPage(S_SAVE_FAILED, P_SCHEDULE);
             return;
         }
-        f.write(reinterpret_cast<const uint8_t*>(s.c_str()), s.length());
+        // Up to a NUL (%00), where the check above stopped: nothing unchecked goes
+        f.write(reinterpret_cast<const uint8_t*>(s.c_str()), strlen(s.c_str()));
         f.close();
         _go("/actuator/schedule");
     }
