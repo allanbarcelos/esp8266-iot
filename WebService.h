@@ -408,7 +408,7 @@ private:
     void _logAction(const char* path) {
         const char* via = _server.from();
         String ip = IPAddress(_server.remoteIP()).toString();
-        _log.log(LOGP("Web: POST %s %d from %s%s"), path, _server.code(), via ? via : ip.c_str(),
+        _log.log(LOGP("Web: POST %s %d from %s%s"), path, _server.status(), via ? via : ip.c_str(),
                  via ? " (relay)" : "");
     }
 

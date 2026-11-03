@@ -105,7 +105,7 @@ public:
     const char*   host() const           { return _host; }
     uint32_t      remoteIP()             { return _link->remoteIP(); }
     const char*   from()                 { return _link->from(); }
-    int           code() const           { return _code; }
+    int           status() const         { return _code; }
     // From the local network (not through the remote access relay)
     bool          local() const          { return _link == &_socket; }
 
