@@ -2993,6 +2993,16 @@ void test_login_wait_has_cap_and_request_without_credentials_does_not_count() {
     setMillis(t + WebService::LOGIN_WAIT_MAX_MS);
     postLogin(f, "admin", "strong-pass", good);
     TEST_ASSERT_EQUAL(302, f.srv.code);                       // never more than 5 min
+
+    // A wait long over stays over, even 2^31 ms on (no request meanwhile)
+    webNow += 60;                                             // a code not spent yet
+    Totp::codeAt(PANEL_TOTP, webNow, good);
+    for (int i = 0; i < WebService::FREE_LOGIN_FAILS; i++) postLogin(f, "admin", "nope-nope!", good);
+    postLogin(f, "admin", "strong-pass", good);
+    TEST_ASSERT_EQUAL(429, f.srv.code);
+    setMillis(millis() + 0x80000000UL + 1000);
+    postLogin(f, "admin", "strong-pass", good);
+    TEST_ASSERT_EQUAL(302, f.srv.code);
 }
 
 void test_wrong_api_token_counts_as_failure() {
@@ -3531,6 +3541,13 @@ void test_setup_mode_sign_in_without_clock() {
 }
 
 void test_session_expires_and_a_new_login_replaces_it() {
+    {
+        Fixture old;                                          // 2^31 ms after its end: still over
+        setMillis(0x80000000UL + WebService::SESSION_MS + 1000);
+        old.get("/status");
+        TEST_ASSERT_EQUAL(302, old.srv.code);
+        setMillis(0);
+    }
     Fixture f;
     std::string first = f.srv.cookie;
     setMillis(WebService::SESSION_MS - 1);

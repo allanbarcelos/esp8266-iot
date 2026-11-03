@@ -220,20 +220,23 @@ private:
     NetArbiter*      _net = nullptr;
     // Wrong password, code or token: the first mistakes pass; after that each
     // one doubles the wait (2 s up to 5 min), and nothing is tried meanwhile
-    // (429). Getting it right resets the count.
+    // (429). Getting it right resets the count. The wait is kept as its
+    // start and length: an end in millis() compared with a signed difference
+    // read as a 24-day wait once 2^31 ms had passed without a request.
     struct Throttle {
         uint8_t       fails = 0;
-        unsigned long until = 0;
+        unsigned long since = 0, wait = 0;
 
-        bool waiting() const { return fails >= FREE_LOGIN_FAILS && (long)(millis() - until) < 0; }
+        bool waiting() const { return fails >= FREE_LOGIN_FAILS && millis() - since < wait; }
 
         // true on the mistake that starts the waits
         bool fail() {
             if (fails < 255) fails++;
             if (fails < FREE_LOGIN_FAILS) return false;
             uint8_t doubling = fails - FREE_LOGIN_FAILS;
-            unsigned long wait = LOGIN_WAIT_MS << (doubling < 8 ? doubling : 8);
-            until = millis() + (wait < LOGIN_WAIT_MAX_MS ? wait : LOGIN_WAIT_MAX_MS);
+            wait = LOGIN_WAIT_MS << (doubling < 8 ? doubling : 8);
+            if (wait > LOGIN_WAIT_MAX_MS) wait = LOGIN_WAIT_MAX_MS;
+            since = millis();
             return fails == FREE_LOGIN_FAILS;
         }
     };
@@ -246,7 +249,7 @@ private:
     uint32_t         _owner = 0;
     uint8_t          _session = 0;   // 0 signed out, 1 authenticator setup, 2 signed in
     char             _sid[33] = {};
-    unsigned long    _sidUntil = 0;
+    unsigned long    _sidSince = 0;   // the sign-in (a start, not an end: see Throttle)
     uint32_t         _sidIp = 0;     // the local address the session belongs to (0: through the relay)
     uint8_t          _pending[Totp::KEY_LEN] = {};
     bool             _pendingSet = false;
@@ -510,7 +513,7 @@ private:
     // it is HTTPS, and a phone's address changes: not tied.
     bool _sessionOk() {
         if (_session == 0) return false;
-        if ((long)(millis() - _sidUntil) >= 0) {
+        if (millis() - _sidSince >= SESSION_MS) {
             _session = 0;
             _sid[0] = '\0';
             return false;
@@ -538,7 +541,7 @@ private:
         snprintf(_csrfSid, sizeof(_csrfSid), "%08lx%08lx",
                  (unsigned long)ESP.random(), (unsigned long)ESP.random());
         _session = level;
-        _sidUntil = millis() + SESSION_MS;
+        _sidSince = millis();
         _sidIp = _server.local() ? _server.remoteIP() : 0;
         _writeCookie(SESSION_MS / 1000);
     }
