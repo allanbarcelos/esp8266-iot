@@ -642,6 +642,70 @@ void test_power_up_restores_last_command() {
     TEST_ASSERT_EQUAL(IoTService::OK, h.command("on", 0));
 }
 
+// A restart that is not a power cut (scheduled restart, watchdog, update)
+// keeps the actuator as it was, from RTC memory: on/off, mode, level, the
+// time it has been on and the schedule's minute. Not a pulse, not after a
+// power cut, not with RTC memory garbled, and only on the first begin().
+void test_restart_keeps_the_actuator() {
+    actuator("fan", 0);
+    cfg.iot.maxOn = 10;                                    // minutes
+    IoTService a{cfg, logger};
+    a.begin();
+    a.command("level 40", 1000);
+    a.tick(61000);                                         // on for 60 s, kept
+    a.tick(61000 + IoTService::KEEP_MS - 1);               // within the second: not again
+
+    ESP._rst.reason = REASON_SOFT_RESTART;
+    setMillis(5000);
+    IoTService b{cfg, logger};
+    b.begin();
+    TEST_ASSERT_TRUE(b.actuatorOn());
+    TEST_ASSERT_EQUAL(40, b.level());
+    TEST_ASSERT_EQUAL(40 * 255 / 100, mock::analogValue[0]);   // driven at once
+    b.tick(5000 + 540000 - 1);                             // the 10 minutes go on counting
+    TEST_ASSERT_TRUE(b.actuatorOn());
+    b.tick(5000 + 540000);
+    TEST_ASSERT_FALSE(b.actuatorOn());
+
+    b.begin();                                             // a reconfiguration: from the file
+    TEST_ASSERT_FALSE(b.actuatorOn());
+    b.tick(600000);
+
+    ESP._rst.reason = REASON_WDT_RST;                      // off was kept
+    IoTService c{cfg, logger};
+    c.begin();
+    TEST_ASSERT_FALSE(c.actuatorOn());
+
+    c.command("pulse 30", 0);                              // a pulse is kept as off
+    c.tick(IoTService::KEEP_MS);
+    IoTService d{cfg, logger};
+    d.begin();
+    TEST_ASSERT_FALSE(d.actuatorOn());
+
+    d.command("on", 0);
+    d.tick(IoTService::KEEP_MS);
+    ESP._rst.reason = REASON_DEFAULT_RST;                  // power cut
+    IoTService e{cfg, logger};
+    e.begin();
+    TEST_ASSERT_FALSE(e.actuatorOn());
+
+    ESP._rst.reason = 6;                                   // the reset pin (REASON_EXT_SYS_RST)
+    IoTService f{cfg, logger};
+    f.begin();
+    TEST_ASSERT_FALSE(f.actuatorOn());
+
+    ESP._rst.reason = REASON_EXCEPTION_RST;
+    ESP._rtc[42] ^= 1;                                     // garbled
+    IoTService g{cfg, logger};
+    g.begin();
+    TEST_ASSERT_FALSE(g.actuatorOn());
+    ESP._rtc[42] ^= 1;
+    IoTService h{cfg, logger};
+    h.begin();
+    TEST_ASSERT_TRUE(h.actuatorOn());
+    TEST_ASSERT_FALSE(h.manual());
+}
+
 // ── Sensor and actuator: rule ────────────────────────────────────────────────
 
 void test_digital_rule_follows_and_manual_wins() {
@@ -1919,6 +1983,7 @@ int main() {
     RUN_TEST(test_servo_position);
     RUN_TEST(test_ws2812_strip_color);
     RUN_TEST(test_power_up_restores_last_command);
+    RUN_TEST(test_restart_keeps_the_actuator);
     RUN_TEST(test_digital_rule_follows_and_manual_wins);
     RUN_TEST(test_auto_before_first_reading_and_rule_off);
     RUN_TEST(test_digital_rule_toggles_on_each_activation);

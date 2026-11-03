@@ -44,6 +44,8 @@ public:
     // Failed readings in a row before automatic mode stops trusting the last
     // one and turns the actuator off: a loose cable must not leave a heater on
     static constexpr uint8_t       FAILS_TO_SAFE    = 3;
+    // How often the actuator's state goes to RTC memory (see _keep)
+    static constexpr unsigned long KEEP_MS          = 1000;
     static constexpr size_t        MSG_LEN          = 80;
     static constexpr uint8_t       MAX_LEDS         = 60;  // 1.8 ms with interrupts off
     static constexpr char          ACTUATOR_MSG[] PROGMEM = "[actuator] %s";
@@ -128,14 +130,14 @@ public:
         if (_act >= 0) {
             _level = _r.dutyOn;
             _angle = _r.angleOn;
-            if (_r.restore) _restore();
+            _onSince = millis();
+            if (!_resume(_onSince) && _r.restore) _restore();
             if (capability() == iot::C_POSITION) {
                 _servoOk = _servo.attach((int)_r.actuatorPin) != 0;
                 if (!_servoOk) _log.log(LOGP("IoT: servo unavailable"));
             } else {
                 pinMode((uint8_t)_r.actuatorPin, OUTPUT);
             }
-            _onSince = millis();
             _drive();
             _log.log(LOGP("IoT: actuator %s GPIO%d"), iot::ACTUATORS[_act].slug, _r.actuatorPin);
         }
@@ -168,6 +170,10 @@ public:
             _manual = hasRule();
             _changed(PSTR("[actuator] %s for safety"));
             _persist();
+        }
+        if (now - _keptAt >= KEEP_MS) {
+            _keptAt = now;
+            _keep(now);
         }
     }
 
@@ -390,6 +396,8 @@ private:
     uint32_t _rgb;
     unsigned long _pulseUntil;
     unsigned long _onSince;
+    unsigned long _keptAt;
+    bool    _begun = false;  // the first begin() since boot (not cleared)
     char    _actLine[28];
     char    _pending[MSG_LEN];
     bool    _urgent;
@@ -440,6 +448,7 @@ private:
         _rgb = 0xFFFFFF;
         _pulseUntil = 0;
         _onSince = 0;
+        _keptAt = 0;
         _actLine[0] = '\0';
         _pending[0] = '\0';
         _urgent = false;
@@ -496,12 +505,61 @@ private:
 
     void _restore() {
         IoTState st;
-        if (!st.load()) return;
+        if (st.load()) _apply(st);
+    }
+
+    void _apply(const IoTState& st) {
         _on = st.on;
         _manual = st.manual;
         _level = st.level > 100 ? 100 : st.level;
         _angle = st.angle > 180 ? 180 : st.angle;
         _rgb = st.rgb & 0xFFFFFF;
+    }
+
+    // The actuator as it is, in RTC memory: a restart keeps it, a power cut
+    // does not. The scheduled restart, a watchdog or an update then leave
+    // the output as it was (a running pulse as off), with the time it has
+    // been on (for "safety off") and the schedule's last minute.
+    struct Kept {
+        uint32_t sum, rgb, schedAt, onMs;
+        uint8_t  on, manual, level, angle;
+    };
+    static constexpr uint32_t RTC_SLOT = 41;   // 4-byte blocks, after NetArbiter's 40
+
+    static uint32_t _sum(const Kept& k) {
+        const uint32_t* w = reinterpret_cast<const uint32_t*>(&k);
+        uint32_t s = 0x4B455054u;   // "KEPT"
+        for (size_t i = 1; i < sizeof(k) / 4; i++) s = (s << 5 | s >> 27) ^ w[i];
+        return s;
+    }
+
+    void _keep(unsigned long now) const {
+        bool on = _on && !_pulsing;
+        Kept k{0, _rgb, _schedAt, on ? (uint32_t)(now - _onSince) : 0u, on, _manual, _level, _angle};
+        k.sum = _sum(k);
+        ESP.rtcUserMemoryWrite(RTC_SLOT, reinterpret_cast<uint32_t*>(&k), sizeof(k));
+    }
+
+    // Only on the first begin() after a restart (a reconfiguration starts
+    // from the saved state, as before) and with RTC memory intact
+    bool _resume(unsigned long now) {
+        uint32_t why = ESP.getResetInfoPtr()->reason;
+        bool first = !_begun;
+        _begun = true;
+        if (!first || why < REASON_WDT_RST || why > REASON_SOFT_RESTART) return false;
+        Kept k;
+        ESP.rtcUserMemoryRead(RTC_SLOT, reinterpret_cast<uint32_t*>(&k), sizeof(k));
+        if (k.sum != _sum(k)) return false;
+        IoTState st;
+        st.on = k.on;
+        st.manual = k.manual;
+        st.level = k.level;
+        st.angle = k.angle;
+        st.rgb = k.rgb;
+        _apply(st);
+        _schedAt = k.schedAt;
+        _onSince = now - k.onMs;
+        return true;
     }
 
     void _persist() const {
