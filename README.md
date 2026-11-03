@@ -470,6 +470,7 @@ GitHub Releases ──(vN)──► ESP8266
 - `public.key` is committed to the repository.
 - The private key is **never** committed (it is in `.gitignore`). CI reads it from the **`OTA_SIGNING_KEY`** secret (PEM contents).
 - **Back up the private key.** Without it, devices on the new firmware reject every OTA update and can only be reflashed over serial.
+- **Guard who can use it.** Devices install a signed release on their own, so whoever can run the release job ships firmware to all of them. The `release` job runs in the `release` environment: in the repository's **Settings → Environments → release**, add required reviewers, allow only `main`, and keep `OTA_SIGNING_KEY` there as an environment secret instead of a repository one (`gh secret set OTA_SIGNING_KEY --env release < private.key`).
 
 ```bash
 openssl genrsa -out private.key 2048

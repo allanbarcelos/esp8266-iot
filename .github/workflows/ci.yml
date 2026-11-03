@@ -273,10 +273,15 @@ jobs:
           if-no-files-found: ignore
 
   # ── Signs and publishes (only a push to main with new firmware) ──────────
+  # The signing key reaches every device by OTA: the job runs in the
+  # "release" environment, where the key should live as an environment
+  # secret behind required reviewers and the main branch only (repository
+  # Settings, Environments). Unconfigured, it behaves as before.
   release:
     needs: [plan, build, test]
     if: needs.plan.outputs.release == 'true'
     runs-on: ubuntu-latest
+    environment: release
     permissions:
       contents: write
     steps:
