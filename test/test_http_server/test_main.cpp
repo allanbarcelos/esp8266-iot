@@ -217,6 +217,25 @@ void test_slow_client_hits_the_deadline() {
     TEST_ASSERT_EQUAL_STRING("/slow", p.path.c_str());
 }
 
+// A client that reads the answer slowly is cut at REPLY_MS: the rest of the
+// page goes nowhere and the loop gets back
+void test_slow_reader_hits_the_deadline() {
+    Probe p;
+    p.reply = [](Probe& q) {
+        q.srv.send(200, "text/plain", "");
+        std::string chunk(1000, 'x');
+        for (int i = 0; i < 100; i++) q.srv.sendContent(chunk.c_str());
+    };
+    auto c = p.connect("GET / HTTP/1.1\r\n\r\n");
+    c->writeMs = 1000;
+    p.srv.handleClient();
+    TEST_ASSERT_EQUAL(1, p.calls);
+    TEST_ASSERT_TRUE(c->closed);
+    TEST_ASSERT_TRUE(c->writes <= (int)(HttpServer::REPLY_MS / 1000) + 1);
+    TEST_ASSERT_TRUE(millis() < HttpServer::REPLY_MS + 2000);
+    TEST_ASSERT_EQUAL(HttpServer::WRITE_MS, MockTLS::lastTimeoutMs);
+}
+
 void test_too_many_header_lines() {
     Probe p;
     std::string r = "GET / HTTP/1.1\r\n";
@@ -401,6 +420,7 @@ int main() {
     RUN_TEST(test_body_too_large_or_negative);
     RUN_TEST(test_incomplete_body);
     RUN_TEST(test_slow_client_hits_the_deadline);
+    RUN_TEST(test_slow_reader_hits_the_deadline);
     RUN_TEST(test_too_many_header_lines);
     RUN_TEST(test_idle_connection_waits_and_gives_up);
     RUN_TEST(test_connection_closed_without_request);

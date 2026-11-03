@@ -201,6 +201,7 @@ struct MockConn {
     uint32_t    ip     = 0x0A01A8C0;   // the browser's address (192.168.1.10)
     int         writes = 0;
     bool        noDelay = false;  // Nagle off (setNoDelay)
+    unsigned long writeMs = 0;    // a slow reader: each write takes this long
     // A slow client: once rx runs out, one byte of drip arrives every dripMs
     std::string   drip;
     unsigned long dripMs = 0;
@@ -233,6 +234,7 @@ public:
         if (_conn) {
             _conn->tx.append(reinterpret_cast<const char*>(b), n);
             _conn->writes++;
+            advanceMillis(_conn->writeMs);
         }
         return n;
     }

@@ -138,7 +138,7 @@ you own.
 - **Requests**: the panel answers only to its own names (an IP address, a name without a dot, its
   hostname in a home network's domain (`.local`, `.lan`, `.home`, `.home.arpa`, `.localdomain`), the DDNS record, the relay's address and the names listed under
   Settings, Other addresses), so a page on another site cannot reach it through DNS rebinding. A request must
-  arrive whole within 3 s and with at most 32 header lines, so a slow client cannot hold the loop
+  arrive whole within 3 s and with at most 32 header lines, and its answer go out within 10 s (the rest is dropped), so a slow client cannot hold the loop
   where the actuator's safety timer runs. The Cloudflare token, record names and relay names
   accept only the characters they can have, so nothing typed changes an API path or header.
 - **Local API**: `/api/state` and `/api/cmd` exist only while a sensor or actuator is configured,

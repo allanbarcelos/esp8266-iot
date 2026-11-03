@@ -46,6 +46,11 @@ public:
     static constexpr unsigned long WAIT_MS        = 5000;   // request after connecting
     static constexpr unsigned long READ_MS        = 2000;   // each chunk of the request
     static constexpr unsigned long REQUEST_MS     = 3000;   // the whole request, once it starts
+    // The answer too: a client that reads one segment every few seconds
+    // (its TCP window nearly shut) gets the rest dropped instead of holding
+    // the loop, and the actuator's safety timer, for minutes
+    static constexpr unsigned long REPLY_MS       = 10000;  // request and answer, from the first byte
+    static constexpr unsigned long WRITE_MS       = 2000;   // each write waits at most this
     static constexpr unsigned long YIELD_MS       = 30;
     static constexpr uint8_t       MAX_HEADERS    = 32;
 
@@ -67,6 +72,7 @@ public:
             // Each write is a whole segment (_out): no wait for the browser's
             // delayed ACK between them
             _client.setNoDelay(true);
+            _client.setTimeout(WRITE_MS);
             _since = millis();
         }
         if (!_client.available()) {
@@ -334,7 +340,7 @@ private:
 
     // Only called with something in the buffer: full, or at the end of the response
     void _flush() {
-        _link->write(reinterpret_cast<const uint8_t*>(_out), _used);
+        if (millis() - _start < REPLY_MS) _link->write(reinterpret_cast<const uint8_t*>(_out), _used);
         _used = 0;
     }
 };
