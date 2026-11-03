@@ -877,10 +877,10 @@ void test_unknown_host_is_refused() {
     strlcpy(cfg.cf_host, "home.example.com", sizeof(cfg.cf_host));
     Fixture f;
     const char* allowed[] = {nullptr, "esp", "192.168.1.50:80", "ESP-00DEAD.local", "esp-00dead.lan",
-                             "Home.Example.com"};
+                             "esp-00dead.home.arpa", "Home.Example.com"};
     for (const char* h : allowed) TEST_ASSERT_EQUAL_MESSAGE(200, hostGet(f, h), h ? h : "(none)");
     const char* refused[] = {"evil.com", "esp-00dead1.lan", "esp-00beef.lan", "esp.example.com", "1.2.3.4.evil.com", ":80",
-                             "home.example.com.evil.com"};
+                             "home.example.com.evil.com", "esp-00dead.evil.com", "esp-00dead.local.evil.com"};
     for (const char* h : refused) {
         TEST_ASSERT_EQUAL_MESSAGE(421, hostGet(f, h), h);
         TEST_ASSERT_TRUE(contains(f.srv.out, "Unknown address"));

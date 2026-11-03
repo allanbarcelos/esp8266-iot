@@ -136,7 +136,7 @@ you own.
   one for the address of the last sign-in, and the one for every other address. Someone guessing
   elsewhere on the network waits alone; the owner and scripts using the API carry on.
 - **Requests**: the panel answers only to its own names (an IP address, a name without a dot, its
-  hostname with any domain, the DDNS record, the relay's address and the names listed under
+  hostname in a home network's domain (`.local`, `.lan`, `.home`, `.home.arpa`, `.localdomain`), the DDNS record, the relay's address and the names listed under
   Settings, Other addresses), so a page on another site cannot reach it through DNS rebinding. A request must
   arrive whole within 3 s and with at most 32 header lines, so a slow client cannot hold the loop
   where the actuator's safety timer runs. The Cloudflare token, record names and relay names

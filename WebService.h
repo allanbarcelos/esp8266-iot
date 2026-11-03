@@ -398,10 +398,11 @@ private:
     // DNS rebinding: a page on another site that points its own name at the
     // device's address would reach the panel as that site, from inside the
     // home. So only the names the device answers to: an IP address, a name
-    // with no dot (the router's DNS), the hostname with any domain after it
-    // (garage.local), the Cloudflare host, the relay's address, and the names
-    // listed in Settings (a tunnel or a proxy). No Host header at all is not
-    // a browser.
+    // with no dot (the router's DNS), the hostname in a home network's domain
+    // (garage.local, .lan, .home, .home.arpa, .localdomain; not garage.evil.com,
+    // whose owner would only have to guess the name), the Cloudflare host, the
+    // relay's address, and the names listed in Settings (a tunnel, a proxy,
+    // another router's domain). No Host header at all is not a browser.
     bool _hostOk() const {
         const char* h = _server.host();
         if (*h == '?') return false;
@@ -410,7 +411,9 @@ private:
         if (_cfg.hostname[0]) strlcpy(own, _cfg.hostname, sizeof(own));
         else snprintf(own, sizeof(own), "esp-%06x", (unsigned)ESP.getChipId());   // the core's ESP-XXXXXX
         size_t label = strcspn(h, ".");
-        if (strlen(own) == label && strncasecmp(h, own, label) == 0) return true;
+        if (strlen(own) == label && strncasecmp(h, own, label) == 0 &&
+            _listed("local,lan,home,home.arpa,localdomain", h + label + 1))
+            return true;
         return strcasecmp(h, _cfg.cf_host) == 0 || strcasecmp(h, _cfg.relay_host) == 0 ||
                _listed(_cfg.web_hosts, h);
     }
