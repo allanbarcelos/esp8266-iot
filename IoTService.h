@@ -1060,10 +1060,11 @@ private:
         _owSince = now;
     }
 
-    // Sensirion CRC-8: polynomial 0x31, starts at 0xFF
-    static uint8_t _crcSht(const uint8_t* d) {
+    // Sensirion CRC-8: polynomial 0x31, starts at 0xFF (the AHT20's too, over
+    // its six bytes)
+    static uint8_t _crcSht(const uint8_t* d, int n = 2) {
         uint8_t crc = 0xFF;
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < n; i++) {
             crc ^= d[i];
             for (int b = 0; b < 8; b++) crc = (uint8_t)(crc & 0x80 ? crc << 1 ^ 0x31 : crc << 1);
         }
@@ -1093,8 +1094,8 @@ private:
         if (_owState == OW_WAIT) {
             if (now - _owSince < dev.ms) return;
             _owState = OW_IDLE;
-            uint8_t d[6];
-            if (!bus.read(addr, d, k == iot::K_LUX ? 2 : 6)) {
+            uint8_t d[7];
+            if (!bus.read(addr, d, k == iot::K_LUX ? 2 : k == iot::K_AHT ? 7 : 6)) {
                 _fail();
                 return;
             }
@@ -1115,6 +1116,10 @@ private:
                 if ((d[0] & 0x88) != 0x08) {           // busy, or not calibrated
                     static const uint8_t INIT[] = {0xBE, 0x08, 0x00};
                     bus.write(addr, INIT, 3);
+                    _fail();
+                    return;
+                }
+                if (_crcSht(d, 6) != d[6]) {           // a bit flipped on the wire
                     _fail();
                     return;
                 }

@@ -1649,8 +1649,15 @@ void test_sht3x_reads_temperature_and_humidity() {
 // AHT20 (0x38): a measurement command, then status and 20-bit values;
 // a sensor not calibrated yet gets its init command
 static std::vector<uint8_t> ahtFrame(uint8_t status, uint32_t h, uint32_t t) {
-    return {status, (uint8_t)(h >> 12), (uint8_t)(h >> 4), (uint8_t)((h & 0x0F) << 4 | t >> 16),
-            (uint8_t)(t >> 8), (uint8_t)t};
+    std::vector<uint8_t> f = {status, (uint8_t)(h >> 12), (uint8_t)(h >> 4), (uint8_t)((h & 0x0F) << 4 | t >> 16),
+                              (uint8_t)(t >> 8), (uint8_t)t};
+    uint8_t crc = 0xFF;                                   // CRC-8, 0x31, from 0xFF
+    for (uint8_t b : f) {
+        crc ^= b;
+        for (int i = 0; i < 8; i++) crc = (uint8_t)(crc & 0x80 ? crc << 1 ^ 0x31 : crc << 1);
+    }
+    f.push_back(crc);
+    return f;
 }
 
 void test_aht20_reads_temperature_and_humidity() {
@@ -1691,6 +1698,13 @@ void test_aht20_reads_temperature_and_humidity() {
     iot.tick(t + IoTService::AHT_MEASURE_MS);
     TEST_ASSERT_EQUAL_STRING("error", iot.sensorText());
     TEST_ASSERT_TRUE(sim.writes.back() == std::vector<uint8_t>({0x38, 0xBE, 0x08, 0x00}));
+    // A flipped bit: the CRC refuses it
+    frame = ahtFrame(0x18, 0x80000, 0x60000);
+    frame[3] ^= 0x10;
+    t += IoTService::READ_GAP_MS;
+    iot.tick(t);
+    iot.tick(t + IoTService::AHT_MEASURE_MS);
+    TEST_ASSERT_EQUAL_STRING("error", iot.sensorText());
     // Still busy: no value either
     frame = ahtFrame(0x98, 0x80000, 0x60000);
     t += IoTService::READ_GAP_MS;
