@@ -471,9 +471,9 @@ void test_ping_and_stalled_broker() {
     f.up();
     f.net.out.clear();
     unsigned long half = MqttService::KEEPALIVE_S * 500UL;
-    f.mqtt.tick(half);                           // < half since the last send
+    f.mqtt.tick(half - 1);                       // < half since the CONNECT
     TEST_ASSERT_TRUE(f.net.out.empty());
-    f.mqtt.tick(half + 1);
+    f.mqtt.tick(half);
     TEST_ASSERT_EQUAL_STRING(std::string("\xC0\x00", 2).c_str(), f.net.out.c_str());
     TEST_ASSERT_EQUAL(2, (int)f.net.out.size());
 
@@ -488,6 +488,27 @@ void test_ping_and_stalled_broker() {
     f.mqtt.tick(dead + 1);
     TEST_ASSERT_TRUE(logHas(logger, "MQTT: broker stalled"));
     TEST_ASSERT_FALSE(f.net.up);
+}
+
+// A device that publishes all the time still pings every half keepalive
+// (QoS 0 gets no answer), and the PINGRESP keeps the connection
+void test_ping_while_publishing() {
+    Fix f;
+    f.up();
+    unsigned long half = MqttService::KEEPALIVE_S * 500UL;
+    int pings = 0;
+    for (unsigned long t = 2; t < 4 * half; t += 1000) {
+        f.net.out.clear();
+        f.iot.command((t / 1000) % 2 ? "on" : "off", t);   // a new state every second
+        f.mqtt.tick(t);
+        if (f.net.out.find(std::string("\xC0\x00", 2)) != std::string::npos) {
+            pings++;
+            f.net.send(pkt(0xD0, ""));
+        }
+    }
+    TEST_ASSERT_TRUE(f.net.up);
+    TEST_ASSERT_FALSE(logHas(logger, "MQTT: broker stalled"));
+    TEST_ASSERT_EQUAL(3, pings);
 }
 
 void test_pause_wifi_and_reconnection() {
@@ -791,6 +812,7 @@ int main() {
     RUN_TEST(test_state_republished_periodically);
     RUN_TEST(test_long_state_uses_two_byte_length);
     RUN_TEST(test_ping_and_stalled_broker);
+    RUN_TEST(test_ping_while_publishing);
     RUN_TEST(test_pause_wifi_and_reconnection);
     RUN_TEST(test_discovery_device_and_topics);
     RUN_TEST(test_discovery_by_module_type);

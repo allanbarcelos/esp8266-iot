@@ -83,8 +83,12 @@ public:
             _fail(now);
             return;
         }
-        if (now - _lastOut >= KEEPALIVE_S * 500UL) {   // PINGREQ halfway
+        // PINGREQ every half keepalive, publishing or not: a QoS 0 publish
+        // gets no answer, so a sensor sending its state every few seconds
+        // left the broker silent, "stalled" above, and the connection dropped
+        if (now - _lastPing >= KEEPALIVE_S * 500UL) {
             static const uint8_t PING[] = {0xC0, 0x00};
+            _lastPing = now;
             _write(PING, sizeof(PING), now);
         }
         if (_shapeNow() != _shape) {                   // module changed on the panel
@@ -153,7 +157,7 @@ private:
     uint8_t       _state   = ST_IDLE;
     bool          _held    = false;
     bool          _waiting = false;
-    unsigned long _next = 0, _lastIn = 0, _lastOut = 0, _lastState = 0, _lastSent = 0;
+    unsigned long _next = 0, _lastIn = 0, _lastPing = 0, _lastState = 0, _lastSent = 0;
     uint16_t      _backoff = BACKOFF_MIN_S;
     uint32_t      _sum = 0;              // state already published (FNV-1a)
     uint32_t      _shape = 0;            // module announced in discovery
@@ -193,7 +197,7 @@ private:
         }
         _state = ST_CONNECTING;
         _rxState = RX_HEADER;
-        _lastIn = now;
+        _lastIn = _lastPing = now;
 
         // CONNECT: "MQTT" level 4, clean session, retained "offline" will
         char id[24], will[32];
@@ -279,9 +283,8 @@ private:
         _write((const uint8_t*)s, n, now);
     }
 
-    void _write(const uint8_t* p, size_t n, unsigned long now) {
+    void _write(const uint8_t* p, size_t n, unsigned long) {
         _net.write(p, n);
-        _lastOut = now;
     }
 
     // Packet from the broker, byte by byte. A body larger than _rx is read and dropped.
