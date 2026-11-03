@@ -959,6 +959,10 @@ private:
         for (int i = 0; i < 9; i++) b[i] = _owReadByte();
         if (_crc8(b, 8) != b[8]) return false;
         int16_t raw = (int16_t)(b[0] | (b[1] << 8));
+        // A line stuck low reads nine zeros, whose CRC is zero too: the
+        // configuration byte always has its five low bits set. 85.0 C is
+        // the value before the first conversion (the sensor lost power).
+        if ((b[4] & 0x9F) != 0x1F || raw == 0x0550) return false;
         *tenths = (int)(((int32_t)raw * 10) / 16);
         return true;
     }

@@ -925,6 +925,24 @@ void test_ds18b20_conversion_and_errors() {
     crc.tick(IoTService::DS_CONVERT_MS);
     TEST_ASSERT_EQUAL_STRING("error", crc.sensorText());
 
+    // A data line shorted to ground: nine zeros and a CRC that matches
+    const uint8_t zeros[9] = {};
+    IoTService shorted{cfg, logger};
+    shorted.begin();
+    feedDs(2, true, true, zeros, 9);
+    shorted.tick(0);
+    shorted.tick(IoTService::DS_CONVERT_MS);
+    TEST_ASSERT_EQUAL_STRING("error", shorted.sensorText());
+
+    // 85.0 C before any conversion (power-on reset value), with a good CRC
+    const uint8_t reset[] = {0x50, 0x05, 0x4B, 0x46, 0x7F, 0xFF, 0x0C, 0x10, 0x1C};
+    IoTService powerOn{cfg, logger};
+    powerOn.begin();
+    feedDs(2, true, true, reset, 9);
+    powerOn.tick(0);
+    powerOn.tick(IoTService::DS_CONVERT_MS);
+    TEST_ASSERT_EQUAL_STRING("error", powerOn.sensorText());
+
     const uint8_t negativo[] = {0x58, 0xFF, 0x4B, 0x46, 0x7F, 0xFF, 0x0C, 0x10, 0xF9};
     cfg.iot.above = false;
     cfg.iot.threshold = 0;
