@@ -59,7 +59,7 @@ INVALID_NAME	Invalid name (up to 31 characters, no quotes)	Nome inválido (até 
 INVALID_HOSTNAME	Invalid hostname (letters, digits and hyphen)	Hostname inválido (letras, dígitos e hífen)	Hostname no válido (letras, dígitos y guion)	Nom d'hôte invalide (lettres, chiffres et trait d'union)
 OTHER_NAMES	Other addresses	Outros endereços	Otras direcciones	Autres adresses
 OTHER_NAMES_HINT	(names of a tunnel or proxy, separated by commas)	(nomes de um túnel ou proxy, separados por vírgula)	(nombres de un túnel o proxy, separados por comas)	(noms d’un tunnel ou proxy, séparés par des virgules)
-INVALID_NAMES	Invalid addresses (letters, digits, dots, hyphens and commas)	Endereços inválidos (letras, dígitos, pontos, hífens e vírgulas)	Direcciones no válidas (letras, dígitos, puntos, guiones y comas)	Adresses invalides (lettres, chiffres, points, traits d’union et virgules)
+INVALID_NAMES	Invalid addresses	Endereços inválidos	Direcciones no válidas	Adresses invalides
 SETTINGS_SAVED	Settings saved!	Configurações salvas!	¡Configuración guardada!	Paramètres enregistrés !
 SYSTEM_LOG	System log	Log do sistema	Registro del sistema	Journal du système
 SYSTEM	System	Sistema	Sistema	Système
@@ -107,8 +107,8 @@ CF_ZONES	Domains this token reaches:	Domínios que este token alcança:	Dominios
 CF_RECORD_READY	DDNS record ready:	Registro DDNS pronto:	Registro DDNS listo:	Enregistrement DDNS prêt :
 DOMAIN	Domain	Domínio	Dominio	Domaine
 RECORD_NAME	Name kept at your IP	Nome mantido no seu IP	Nombre mantenido en su IP	Nom maintenu sur votre IP
-RECORD_HELP	A name in the domain, like home.example.com or just home: created if missing and kept on your public IP.	Um nome no domínio, como casa.exemplo.com ou só casa: criado se não existir e mantido no seu IP público.	Un nombre en el dominio, como casa.ejemplo.com o solo casa: se crea si no existe y se mantiene en su IP pública.	Un nom dans le domaine, comme maison.exemple.com ou juste maison : créé s'il manque et gardé sur votre IP publique.
-INVALID_RECORD_NAME	Invalid name: letters, digits, dots and dashes, inside the chosen domain	Nome inválido: letras, dígitos, pontos e hifens, dentro do domínio escolhido	Nombre no válido: letras, dígitos, puntos y guiones, dentro del dominio elegido	Nom invalide : lettres, chiffres, points et tirets, dans le domaine choisi
+RECORD_HELP	Like home or home.example.com; created if missing.	Como casa ou casa.exemplo.com; criado se faltar.	Como casa o casa.ejemplo.com; se crea si falta.	Comme maison ou maison.exemple.com ; créé s'il manque.
+INVALID_RECORD_NAME	Invalid name, or outside the chosen domain	Nome inválido ou fora do domínio escolhido	Nombre no válido o fuera del dominio elegido	Nom invalide ou hors du domaine choisi
 UNKNOWN_ZONE	Pick a domain from the list (missing: save the token again)	Escolha um domínio da lista (faltando: salve o token de novo)	Elija un dominio de la lista (si falta: guarde el token de nuevo)	Choisissez un domaine dans la liste (absent : enregistrez à nouveau le jeton)
 DDNS_OFF	DDNS off	DDNS desligado	DDNS apagado	DDNS désactivé
 REMOTE	Remote access	Acesso remoto	Acceso remoto	Accès à distance
@@ -117,7 +117,7 @@ CF_NEEDS_TOKEN	Register the Cloudflare API token in Settings first.	Cadastre pri
 GENERAL	General	Geral	General	Général
 WORKER	Worker - remote access	Worker - acesso remoto	Worker - acceso remoto	Worker - accès à distance
 CF_CLEAR	Unregister	Descadastrar	Quitar registro	Supprimer l'enregistrement
-CF_CLEAR_ASK	Remove the token and every Cloudflare setting from this device? The Worker and the DNS record stay in your account.	Remover o token e todas as configurações da Cloudflare deste aparelho? O Worker e o registro DNS ficam na sua conta.	¿Quitar el token y toda la configuración de Cloudflare de este aparato? El Worker y el registro DNS siguen en su cuenta.	Retirer le jeton et tous les réglages Cloudflare de cet appareil ? Le Worker et l'enregistrement DNS restent dans votre compte.
+CF_CLEAR_ASK	Remove the token and every Cloudflare setting? The Worker and the DNS record stay in your account.	Remover o token e as configurações da Cloudflare? O Worker e o registro DNS ficam na sua conta.	¿Quitar el token y la configuración de Cloudflare? El Worker y el registro DNS siguen en su cuenta.	Retirer le jeton et les réglages Cloudflare ? Le Worker et l'enregistrement DNS restent dans votre compte.
 CF_CLEARED	Cloudflare token and settings removed	Token e configurações da Cloudflare removidos	Token y configuración de Cloudflare quitados	Jeton et réglages Cloudflare retirés
 ADDRESS	Address	Endereço	Dirección	Adresse
 REMOTE_NAME	Name (the first part of the address, and the Worker's name)	Nome (a primeira parte do endereço e o nome do Worker)	Nombre (la primera parte de la dirección y el nombre del Worker)	Nom (la première partie de l'adresse et le nom du Worker)
@@ -207,7 +207,7 @@ MODE	Mode	Modo	Modo
 MANUAL	manual			manuel
 AUTOMATIC	automatic	automático	automático	automatique
 AUTO_OUTSIDE	automatic, outside the window	automático, fora da janela	automático, fuera de la franja	automatique, hors de la plage
-PINOUT_ALT	ESP-01 pins, top view: GPIO0, RX (GPIO3), GPIO2, GND; VCC 3.3 V, RST, CH_PD, TX (GPIO1)	Pinos do ESP-01, vista de cima: GPIO0, RX (GPIO3), GPIO2, GND; VCC 3,3 V, RST, CH_PD, TX (GPIO1)	Pines del ESP-01, vista superior: GPIO0, RX (GPIO3), GPIO2, GND; VCC 3,3 V, RST, CH_PD, TX (GPIO1)	Broches de l'ESP-01, vue de dessus : GPIO0, RX (GPIO3), GPIO2, GND ; VCC 3,3 V, RST, CH_PD, TX (GPIO1)
+PINOUT_ALT	ESP-01 pins, top view	Pinos do ESP-01, vista de cima	Pines del ESP-01, vista superior	Broches de l'ESP-01, vue de dessus
 ROLE_QUESTION	What does this device do?	O que este aparelho faz?	¿Qué hace este dispositivo?	Que fait cet appareil ?
 ROLE_NONE	Nothing (IoT off)	Nada (IoT desligado)	Nada (IoT apagado)	Rien (IoT désactivé)
 ROLE_SENSOR	Sensor only: measures and reports	Só sensor: mede e informa	Solo sensor: mide e informa	Capteur seul : mesure et signale
