@@ -319,6 +319,13 @@ private:
         char secret[sizeof(_cfg.relay_secret)];
         for (int i = 0; i < 8; i++) snprintf(secret + 8 * i, 9, "%08lx", (unsigned long)ESP.random());
         if (!_upload(acc, !exists, secret, a)) return false;
+        // The Worker in use has the new secret from here on: keep it at once,
+        // or a failing route below leaves the relay refused (401)
+        bool same = strcmp(_name, _cfg.relay_name) == 0;
+        if (same) {
+            strlcpy(_cfg.relay_secret, secret, sizeof(_cfg.relay_secret));
+            _store.save();
+        }
 
         if (!_route(path, sizeof(path), n, host, own ? z.id : nullptr, a)) return false;
         strlcpy(_cfg.relay_secret, secret, sizeof(_cfg.relay_secret));

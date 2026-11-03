@@ -521,6 +521,28 @@ void test_deploy_failing_steps_change_nothing() {
     TEST_ASSERT_FALSE(f.cf.takeDeployed());
 }
 
+// The Worker in use took the new secret but its address failed: the device
+// keeps the new secret (saved), so its relay is not refused meanwhile
+void test_redeploy_keeps_the_new_secret_when_the_route_fails() {
+    zonesOnDisk();
+    strlcpy(cfg.relay_name, "esp-pump", sizeof(cfg.relay_name));
+    strlcpy(cfg.relay_host, "esp-pump.example.com", sizeof(cfg.relay_host));
+    strlcpy(cfg.relay_secret, "old", sizeof(cfg.relay_secret));
+    Fixture f;
+    f.cf.deploy("esp-pump", Z1, "");
+    MockHTTP::push(200, OURS);
+    MockHTTP::push(200, OK);
+    MockHTTP::push(409, R"({"success":false,"errors":[{"message":"hostname has DNS records"}]})");
+    f.cf.tick(0);
+    TEST_ASSERT_EQUAL_STRING("hostname has DNS records", f.cf.message());
+    TEST_ASSERT_EQUAL(64, (int)strlen(cfg.relay_secret));
+    TEST_ASSERT_TRUE(contains(MockFS::files["/config.json"], cfg.relay_secret));
+    const MockHTTP::Request* up = find("PUT", "scripts/esp-pump");
+    TEST_ASSERT_TRUE(contains(up->payload, cfg.relay_secret));
+    TEST_ASSERT_EQUAL_STRING("esp-pump.example.com", cfg.relay_host);
+    TEST_ASSERT_FALSE(f.cf.takeDeployed());
+}
+
 // After an update with another relay protocol, the Worker goes up again
 void test_redeploy_after_a_protocol_change() {
     zonesOnDisk();
@@ -565,6 +587,7 @@ int main() {
     RUN_TEST(test_deploy_names_the_workers_dev_subdomain);
     RUN_TEST(test_deploy_refusals);
     RUN_TEST(test_deploy_failing_steps_change_nothing);
+    RUN_TEST(test_redeploy_keeps_the_new_secret_when_the_route_fails);
     RUN_TEST(test_redeploy_after_a_protocol_change);
     return UNITY_END();
 }
