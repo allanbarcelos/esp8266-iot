@@ -2000,7 +2000,10 @@ private:
             _mfaPage(S_CLOCK, true);
             return;
         }
-        uint32_t step = _floor(t);
+        // A new key: none of its codes is spent yet. The floor belongs to the
+        // old key, whose code was just spent to get here, and would refuse
+        // the new key's first code in that same step (and count a mistake)
+        uint32_t step = 0;
         if (!_pendingSet || !_codeOk(_pending, t.now, step)) {
             _loginFailed(_tries());
             _mfaPage(S_SIGN_IN_FAILED, false);

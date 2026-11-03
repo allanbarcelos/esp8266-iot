@@ -3707,8 +3707,7 @@ void test_replace_authenticator() {
     TEST_ASSERT_TRUE(std::memcmp(key, PANEL_TOTP, Totp::KEY_LEN) != 0);
 
     char code[8];
-    webNow = PANEL_TIME + 30;
-    Totp::codeAt(key, webNow, code);
+    Totp::codeAt(key, webNow, code);                  // the same 30 s as the old key's code
     MockFS::failWriteOpen = true;
     f.post("/mfa", {{"code", code}});
     TEST_ASSERT_EQUAL(400, f.srv.code);
