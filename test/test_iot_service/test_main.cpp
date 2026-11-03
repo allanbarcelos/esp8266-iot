@@ -1371,6 +1371,40 @@ void test_schedule_runs() {
     cfg.tz = 0;
 }
 
+// Minutes the loop missed run late, in order; a clock moved back a little
+// does not run a minute twice, a big jump starts from the new minute
+void test_schedule_runs_late_and_once() {
+    actuator("relay", 0);
+    cfg.tz = 0;
+    Clock clock{fakeClock};
+    IoTService iot{cfg, logger, &clock};
+    iot.begin();
+    // Every day: 09:01 on, 09:03 off (listed first), 09:05 toggle
+    MockFS::put("/schedule", "127 543 off\n127 541 on\n127 545 toggle\n");
+    at(9, 0);
+    iot.tick(1);
+    at(9, 4);                                              // 09:01 to 09:04 missed: on, then off
+    iot.tick(2);
+    TEST_ASSERT_FALSE(iot.actuatorOn());
+    TEST_ASSERT_TRUE(logHas(logger, "Schedule: on"));
+    at(9, 5);
+    iot.tick(3);
+    TEST_ASSERT_TRUE(iot.actuatorOn());                    // toggled
+    at(9, 4);                                              // the clock goes back a minute
+    iot.tick(4);
+    at(9, 5);                                              // 09:05 again: not twice
+    iot.tick(5);
+    TEST_ASSERT_TRUE(iot.actuatorOn());
+    at(9, 5 + IoTService::SCHEDULE_LATE + 1);              // too late for 09:05..
+    iot.tick(6);
+    at(9, 1);                                              // far back: from there on
+    iot.tick(7);
+    TEST_ASSERT_TRUE(iot.actuatorOn());                    // 09:01 on
+    at(9, 1 + IoTService::SCHEDULE_LATE + 1);              // a gap past the limit: only that minute
+    iot.tick(8);
+    TEST_ASSERT_TRUE(iot.actuatorOn());
+}
+
 void test_local_time_and_window() {
     uint16_t m = 0;
     IoTService none{cfg, logger};
@@ -1998,6 +2032,7 @@ int main() {
     RUN_TEST(test_units_flow_and_total);
     RUN_TEST(test_schedule_line);
     RUN_TEST(test_schedule_runs);
+    RUN_TEST(test_schedule_runs_late_and_once);
     RUN_TEST(test_local_time_and_window);
     RUN_TEST(test_rule_only_inside_window);
     RUN_TEST(test_outside_window_without_reading);

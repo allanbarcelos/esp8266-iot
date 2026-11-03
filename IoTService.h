@@ -320,6 +320,9 @@ public:
     // as the panel sends it). Kept by WebService; any number of entries.
     static constexpr const char* SCHEDULE_PATH = "/schedule";
     static constexpr size_t      SCHEDULE_MAX  = 1024;   // the file, in bytes
+    // Minutes the schedule runs late (a loop held up by an update's download,
+    // a restart) or waits for a clock moved back
+    static constexpr uint32_t    SCHEDULE_LATE = 15;
 
     // One line into its parts (the command stays in the line); false if it is
     // not one
@@ -859,30 +862,35 @@ private:
     }
 
     // Once per local minute, with the clock set: the entries of that minute
-    // and day run as commands (a TLS handshake blocks the loop for seconds,
-    // never a whole minute)
+    // and day run as commands. Minutes missed since the last one (the loop
+    // held up, a restart: _schedAt survives it) run late, in order, up to
+    // SCHEDULE_LATE; a clock moved back a little waits for the last minute
+    // again instead of running it twice.
     void _schedule(unsigned long now) {
         if (!_clock || !_clock->synced()) return;
         uint32_t m = ((uint32_t)_clock->now() + (int32_t)_cfg.tz * 60) / 60;
-        if (m == _schedAt) return;
+        if (m == _schedAt || (m < _schedAt && _schedAt - m <= SCHEDULE_LATE)) return;
+        uint32_t t = m - _schedAt - 1 < SCHEDULE_LATE ? _schedAt + 1 : m;
         _schedAt = m;
-        File f = LittleFS.open(SCHEDULE_PATH, "r");
-        if (!f) return;
-        char line[32];
-        for (int c = 0; c >= 0;) {
-            size_t n = 0;
-            while ((c = f.read()) >= 0 && c != '\n')
-                if (n < sizeof(line) - 1) line[n++] = (char)c;
-            line[n] = '\0';
-            uint8_t days;
-            uint16_t minute;
-            const char* cmd;
-            if (!scheduleLine(line, days, minute, cmd)) continue;
-            if (m % 1440 != minute || !(days >> ((m / 1440 + 4) % 7) & 1)) continue;
-            _log.log(LOGP("Schedule: %s"), cmd);
-            command(cmd, now);
+        for (; t <= m; t++) {
+            File f = LittleFS.open(SCHEDULE_PATH, "r");
+            if (!f) return;
+            char line[32];
+            for (int c = 0; c >= 0;) {
+                size_t n = 0;
+                while ((c = f.read()) >= 0 && c != '\n')
+                    if (n < sizeof(line) - 1) line[n++] = (char)c;
+                line[n] = '\0';
+                uint8_t days;
+                uint16_t minute;
+                const char* cmd;
+                if (!scheduleLine(line, days, minute, cmd)) continue;
+                if (t % 1440 != minute || !(days >> ((t / 1440 + 4) % 7) & 1)) continue;
+                _log.log(LOGP("Schedule: %s"), cmd);
+                command(cmd, now);
+            }
+            f.close();
         }
-        f.close();
     }
 
     // Phase 1: pin LOW; the next tick that lands in the window reads the bits.
