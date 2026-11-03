@@ -23,8 +23,13 @@ public:
         _syncedIP[0] = '\0';
     }
 
+    // A failure tries again after a minute, then waits twice as long each
+    // time, up to RETRY_MAX: a record deleted or a token without DNS Edit
+    // would otherwise take the single TLS session (and close the relay)
+    // every minute, for good. After a success a new IP goes at once.
     void tick(unsigned long now) {
         if (!due(now)) return;
+        _wait = !_attempted ? RETRY_INTERVAL : _wait < RETRY_MAX ? _wait * 2 : RETRY_MAX;
         _attempted   = true;
         _lastAttempt = now;
         _sync();
@@ -33,7 +38,7 @@ public:
     // The next tick call will use the network (TLS)
     bool due(unsigned long now) const {
         return configured() && _cfg.publicIP[0] && strcmp(_cfg.publicIP, _syncedIP) != 0 &&
-               (!_attempted || now - _lastAttempt >= RETRY_INTERVAL) &&
+               (!_attempted || now - _lastAttempt >= _wait) &&
                _wifi.isConnected() && _clock.synced();  // TLS needs a valid clock
     }
 
@@ -50,6 +55,7 @@ public:
     }
 
     static constexpr unsigned long RETRY_INTERVAL = 60000UL;
+    static constexpr unsigned long RETRY_MAX      = 16 * RETRY_INTERVAL;
 
 private:
     Config&       _cfg;
@@ -57,7 +63,8 @@ private:
     WiFiService&  _wifi;
     Clock&        _clock;
     unsigned long _lastAttempt = 0;
-    bool          _attempted   = false;
+    bool          _attempted   = false;   // failed since the last success
+    unsigned long _wait        = RETRY_INTERVAL;
     char          _syncedIP[16];
 
     void _sync() {
@@ -75,6 +82,7 @@ private:
             return;
         }
         strlcpy(_syncedIP, ip, sizeof(_syncedIP));
+        _attempted = false;
         _cfg.lastDnsUpdate = millis();
         _wifi.notifySuccess();
         _log.log(LOGP("DNS updated!"));

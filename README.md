@@ -446,7 +446,7 @@ The device checks its public IP **every 5 minutes** (while Wi-Fi is up and the c
 
 The **Status** page shows the public IP, its reverse name, when it last changed and when it was last checked; the home page shows it next to the local IP.
 
-With the DDNS record picked on the Cloudflare page (its **DDNS** card), a public IP different from the **last synchronized IP** (kept in memory) sends a `PATCH` to that record; a failure retries every minute. The firmware does not rely on local DNS resolution: it is cached by TTL and returns Cloudflare IPs for *proxied* records. Each boot performs one initial `PATCH`, which is idempotent. The connection to `api.cloudflare.com` validates the certificate against the roots in `CloudflareCA.h` (GTS Root R1/R4, ISRG Root X1/X2). Older configurations with several record IDs keep the first one.
+With the DDNS record picked on the Cloudflare page (its **DDNS** card), a public IP different from the **last synchronized IP** (kept in memory) sends a `PATCH` to that record; a failure retries in a minute, then waits twice as long each time, up to 16 minutes, so a deleted record or a token without DNS Edit does not take the TLS session (and close the relay) every minute. The firmware does not rely on local DNS resolution: it is cached by TTL and returns Cloudflare IPs for *proxied* records. Each boot performs one initial `PATCH`, which is idempotent. The connection to `api.cloudflare.com` validates the certificate against the roots in `CloudflareCA.h` (GTS Root R1/R4, ISRG Root X1/X2). Older configurations with several record IDs keep the first one.
 
 ---
 

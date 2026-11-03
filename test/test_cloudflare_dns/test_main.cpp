@@ -120,7 +120,32 @@ void test_changed_ip_sends_patch_again() {
     TEST_ASSERT_EQUAL_STRING("5.6.7.8", f.dns.syncedIP());
 }
 
-// A failure retries every minute, even with the same IP
+// A failure retries in a minute, even with the same IP; then each wait
+// doubles up to RETRY_MAX, and a new IP starts again at a minute
+void test_failures_back_off() {
+    Fixture f;
+    unsigned long t = T0, wait = R;
+    for (int i = 0; i < 7; i++) {
+        MockHTTP::push(403, ERR_JSON);
+        f.dns.tick(t);
+        TEST_ASSERT_EQUAL(i + 1, (int)MockHTTP::requests.size());
+        TEST_ASSERT_FALSE(f.dns.due(t + wait - 1));
+        TEST_ASSERT_TRUE(f.dns.due(t + wait));
+        t += wait;
+        if (wait < CloudflareDNS::RETRY_MAX) wait *= 2;
+    }
+    TEST_ASSERT_EQUAL(CloudflareDNS::RETRY_MAX, wait);
+    MockHTTP::push(200, OK_JSON);                           // a success
+    f.dns.tick(t);
+    TEST_ASSERT_EQUAL_STRING("1.2.3.4", f.dns.syncedIP());
+    strlcpy(cfg.publicIP, "5.6.7.8", sizeof(cfg.publicIP));
+    TEST_ASSERT_TRUE(f.dns.due(t + 1));                     // then a new IP: at once
+    MockHTTP::push(403, ERR_JSON);
+    f.dns.tick(t + 1);
+    TEST_ASSERT_FALSE(f.dns.due(t + R));                    // and a minute again
+    TEST_ASSERT_TRUE(f.dns.due(t + 1 + R));
+}
+
 void test_api_error_retries_in_a_minute() {
     Fixture f;
     MockHTTP::push(403, ERR_JSON);
@@ -208,10 +233,11 @@ void test_odd_answer_types() {
     TEST_ASSERT_TRUE(logHas(logger, "DNS: HTTP 200"));
     logger = Logger();
     MockHTTP::push(200, R"({"success":false,"errors":[{"code":"x","message":7}]})");
-    f.dns.tick(T0 + 2 * R);
+    f.dns.tick(T0 + 3 * R);                                  // each retry waits twice as long
     TEST_ASSERT_TRUE(logHas(logger, "DNS: 7"));
     MockHTTP::push(200, R"({"success":false,"errors":[]})");
-    f.dns.tick(T0 + 3 * R);
+    f.dns.tick(T0 + 7 * R);
+    TEST_ASSERT_EQUAL(4, (int)MockHTTP::requests.size());
     TEST_ASSERT_EQUAL_STRING("", f.dns.syncedIP());
 }
 
@@ -288,6 +314,7 @@ int main() {
     RUN_TEST(test_same_ip_sends_no_patch);
     RUN_TEST(test_changed_ip_sends_patch_again);
     RUN_TEST(test_api_error_retries_in_a_minute);
+    RUN_TEST(test_failures_back_off);
     RUN_TEST(test_error_without_details);
     RUN_TEST(test_invalid_json_response);
     RUN_TEST(test_truncated_json_response);
