@@ -69,6 +69,29 @@ void test_half_full_is_written_and_packed() {
     for (const Line& l : lines()) TEST_ASSERT_EQUAL_STRING(text, l.text.c_str());
 }
 
+// A chattering source: after a few early writes, half-full waits for the
+// next one earned (FLUSH_GAP_MS), and the oldest lines in RAM go meanwhile
+void test_a_busy_log_does_not_wear_the_flash() {
+    int writes = 0;
+    size_t last = 0;
+    unsigned long t = 1000;
+    for (int i = 0; i < 400; i++, t += 10) {
+        lgr.log("%s", "Sensor flapping on and off");
+        lgr.tick(t);
+        size_t now = MockFS::files["/log.0"].size() + MockFS::files["/log.1"].size();
+        if (now != last) writes++;
+        last = now;
+    }
+    TEST_ASSERT_EQUAL(Logger::EARLY_MAX, writes);
+    lgr.tick(Logger::FLUSH_GAP_MS - 1);                     // still none earned
+    TEST_ASSERT_EQUAL(last, MockFS::files["/log.0"].size() + MockFS::files["/log.1"].size());
+    lgr.tick(Logger::FLUSH_GAP_MS);                         // one earned: written
+    TEST_ASSERT_TRUE(MockFS::files["/log.0"].size() + MockFS::files["/log.1"].size() > last);
+    for (int k = 2; k < 10; k++) lgr.tick(k * Logger::FLUSH_GAP_MS);   // earned up to the cap
+    lgr.log("%s", "quiet again");
+    lgr.flush(10 * Logger::FLUSH_GAP_MS);
+}
+
 // Once the clock is set, lines get Unix time: those that waited from before
 // are turned on the way to the file
 void test_clock_gives_unix_time() {
@@ -98,7 +121,7 @@ void test_files_rotate() {
     char name[16];
     for (int i = 0; i < 2000; i++) {
         lgr.log("line %d with some text", i);
-        lgr.tick(1000);
+        lgr.tick(1000 + i * Logger::FLUSH_GAP_MS);   // an early write earned at each
     }
     TEST_ASSERT_TRUE(LittleFS.exists("/log.2"));
     for (const char* p : Logger::PATHS) TEST_ASSERT_TRUE(MockFS::files[p].size() <= Logger::FILE_MAX);
@@ -215,6 +238,7 @@ int main() {
     RUN_TEST(test_kept_files_last_a_day);
     RUN_TEST(test_line_waits_then_goes_to_the_file);
     RUN_TEST(test_half_full_is_written_and_packed);
+    RUN_TEST(test_a_busy_log_does_not_wear_the_flash);
     RUN_TEST(test_clock_gives_unix_time);
     RUN_TEST(test_files_rotate);
     RUN_TEST(test_full_ram_drops_the_oldest);

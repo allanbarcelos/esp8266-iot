@@ -828,9 +828,10 @@ private:
                 _ruleOn = _rule(shown, tenths);
             }
             _haveRule = true;
+            bool was = _on;
             if (!_manual && _takeRule()) {
                 _drive();
-                log = true;
+                log = log || was != _on;   // a proportional level follows each reading: not logged
             }
         }
         _report(log);

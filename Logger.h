@@ -22,7 +22,9 @@
 
 // The log. Each line goes to Serial at once and waits in RAM; tick() writes
 // the waiting lines to LittleFS in one go (flash wears with every write):
-// every FLUSH_MS, or when half the RAM is taken, and before a restart. A
+// every FLUSH_MS, when half the RAM is taken (a few times in a row, then at
+// most once per FLUSH_GAP_MS: a chattering sensor drops its oldest lines
+// instead of wearing the flash out), and before a restart. A
 // line is never written from log() itself: it is called from the Wi-Fi
 // events too, where flash work does not belong. A full RAM drops its oldest.
 //
@@ -37,6 +39,8 @@ public:
     static constexpr size_t        PENDING  = 512;      // bytes of lines waiting in RAM
     static constexpr size_t        FILE_MAX = 4000;     // a LittleFS block, 4096, with room to spare
     static constexpr unsigned long FLUSH_MS = 600000UL; // 10 min
+    static constexpr unsigned long FLUSH_GAP_MS = 300000UL; // one early write earned per 5 min
+    static constexpr uint8_t       EARLY_MAX = 4;       // early writes kept for a burst (the boot)
     static constexpr uint32_t      KEEP_S   = 86400;    // a kept file, at most a day
     static constexpr const char*   PATHS[]  = {"/log.2", "/log.1", "/log.0"};   // oldest first
 
@@ -77,7 +81,16 @@ public:
     }
 
     void tick(unsigned long now) {
-        if (_used >= PENDING / 2 || now - _flushed >= FLUSH_MS) flush(now);
+        if (now - _earned >= FLUSH_GAP_MS) {
+            _earned = now;
+            if (_early < EARLY_MAX) _early++;
+        }
+        if (now - _flushed >= FLUSH_MS) {
+            flush(now);
+        } else if (_used >= PENDING / 2 && _early) {
+            _early--;
+            flush(now);
+        }
     }
 
     // Writes what waits to /log.0 (rotating it when full), after the kept
@@ -163,7 +176,8 @@ private:
     const Clock*  _clock   = nullptr;
     uint8_t       _pending[PENDING] = {};
     size_t        _used    = 0;
-    unsigned long _flushed = 0;
+    unsigned long _flushed = 0, _earned = 0;
+    uint8_t       _early = EARLY_MAX;   // half-full writes allowed now
 
     uint32_t _stamp() const {
         return _clock && _clock->synced() ? (uint32_t)_clock->now() : millis() / 1000;
